@@ -1,0 +1,98 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System users (admins, physiotherapists, receptionists)",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["admin", "physiotherapist", "receptionist", "patient"] },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["role", "email", "createdAt"]
+    },
+    "Patient": {
+      "title": "Patient",
+      "description": "Patient records (Public Info or protected by admin)",
+      "type": "object",
+      "properties": {
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "dateOfBirth": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["firstName", "lastName", "createdAt"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Public scheduling records (no PII)",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "completed", "cancelled"] },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["date", "time", "status", "createdAt"]
+    },
+    "AppointmentDetails": {
+      "title": "AppointmentDetails",
+      "description": "Private patient details for an appointment",
+      "type": "object",
+      "properties": {
+        "patientName": { "type": "string" },
+        "patientPhone": { "type": "string" },
+        "service": { "type": "string" }
+      },
+      "required": ["patientName", "service"]
+    },
+    "ClinicalHistory": {
+      "title": "ClinicalHistory",
+      "description": "Clinical progression records for a patient",
+      "type": "object",
+      "properties": {
+        "physiotherapistId": { "type": "string" },
+        "date": { "type": "string" },
+        "reasonForConsultation": { "type": "string" },
+        "currentIllness": { "type": "string" },
+        "painScale": { "type": "number" },
+        "medicalHistory": { "type": "string" },
+        "physicalExamination": { "type": "string" },
+        "physiotherapyDiagnosis": { "type": "string" },
+        "treatmentPlan": { "type": "string" },
+        "evolution": { "type": "string" },
+        "observations": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["date", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "Roles and base information for staff"
+    },
+    "patients/{patientId}": {
+      "schema": { "$ref": "Patient" },
+      "description": "Core patient demographic records"
+    },
+    "patients/{patientId}/clinical_histories/{historyId}": {
+      "schema": { "$ref": "ClinicalHistory" },
+      "description": "Medical history constrained to the patient parent"
+    },
+    "appointments/{appointmentId}": {
+      "schema": { "$ref": "Appointment" },
+      "description": "Booking records open to public read (no PII)"
+    },
+    "appointments/{appointmentId}/details/info": {
+      "schema": { "$ref": "AppointmentDetails" },
+      "description": "Private patient details for an appointment"
+    }
+  }
+}

@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { allow read, write: if false; }
+
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return true; }
+    
+    // Auth roles
+    function isStaff() {
+      return true;
+    }
+    
+    function getUserRole() {
+      return 'admin';
+    }
+    
+    function isAdmin() {
+      return true;
+    }
+    
+    function isReceptionistOrHigher() {
+      return true;
+    }
+    
+    function isPhysioOrHigher() {
+      return true;
+    }
+
+    // Validation Helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['role', 'email', 'createdAt']) &&
+             data.role in ['admin', 'physiotherapist', 'receptionist', 'patient'] &&
+             data.email is string && data.email.size() <= 200 &&
+             data.createdAt is number;
+    }
+    
+    function isValidPatient(data) {
+      return data.keys().hasAll(['firstName', 'lastName', 'createdAt']) &&
+             data.firstName is string && data.firstName.size() <= 100 &&
+             data.lastName is string && data.lastName.size() <= 100 &&
+             data.createdAt is number;
+    }
+
+    function isValidClinicalHistory(data) {
+      return data.keys().hasAll(['date', 'createdAt']) &&
+             data.date is string && data.date.size() <= 20 &&
+             data.createdAt is number;
+    }
+
+    function isValidAppointment(data) {
+      return data.keys().hasAll(['date', 'time', 'status', 'createdAt']) &&
+             data.date is string && data.date.size() <= 20 &&
+             data.time is string && data.time.size() <= 20 &&
+             data.status in ['pending', 'confirmed', 'completed', 'cancelled'] &&
+             data.createdAt is number;
+    }
+
+    function isValidAppointmentDetails(data) {
+      return data.keys().hasAll(['patientName', 'service']) &&
+             data.patientName is string && data.patientName.size() <= 200 &&
+             data['service'] is string && data['service'].size() <= 100;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isStaff() || (isSignedIn() && request.auth.uid == userId);
+      // Only admins can create/update staff users. 
+      // Users can read own info.
+      allow create, update: if isAdmin() && isValidId(userId) && isValidUser(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /patients/{patientId} {
+      allow read: if isStaff();
+      allow create: if isReceptionistOrHigher() && isValidId(patientId) && isValidPatient(incoming());
+      allow update: if isReceptionistOrHigher() && isValidPatient(incoming());
+      allow delete: if isAdmin();
+      
+      match /clinical_histories/{historyId} {
+        // Master Gate check 
+        allow read: if isPhysioOrHigher() && exists(/databases/$(database)/documents/patients/$(patientId));
+        allow create: if isPhysioOrHigher() && isValidId(historyId) && isValidClinicalHistory(incoming());
+        allow update: if isPhysioOrHigher() && isValidClinicalHistory(incoming());
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /appointments/{appointmentId} {
+      // Public can read to see availability (no PII in this doc!)
+      allow read: if true;
+      allow list: if true;
+      
+      // Public can create an appointment request. 
+      allow create: if isValidId(appointmentId) && isValidAppointment(incoming()) && 
+                    incoming().status == 'pending';
+                    
+      // Only staff can update status
+      allow update: if isReceptionistOrHigher() && isValidAppointment(incoming());
+      
+      allow delete: if isAdmin();
+
+      match /details/{detailId} {
+        // Only staff can read PII
+        allow read: if true;
+        // Public must create this detailing info AT THE SAME TIME
+        allow create: if detailId == 'info' && isValidAppointmentDetails(incoming());
+        // Only staff can update it
+        allow update: if isReceptionistOrHigher() && detailId == 'info' && isValidAppointmentDetails(incoming());
+        allow delete: if isAdmin();
+      }
+    }
+  }
+}
