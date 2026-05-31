@@ -1,6 +1,6 @@
 import { Outlet, Link } from "react-router-dom";
 import { Button } from "../components/ui/Button";
-import { Activity, Phone, MapPin, Clock, Calendar, Instagram } from "lucide-react";
+import { Activity, Phone, MapPin, Clock, Calendar, Instagram, Facebook, MessageCircle } from "lucide-react";
 
 export function PublicLayout() {
   return (
@@ -16,6 +16,9 @@ export function PublicLayout() {
           </div>
         </div>
         <div className="flex gap-4">
+          <a href="https://www.facebook.com/prophysicalpuyo/?locale=es_LA" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-brand-light transition-colors">
+            <Facebook size={14} className="text-brand-light" /> ProPhysical
+          </a>
           <a href="https://www.instagram.com/prophysical_puyo/?hl=es" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-brand-light transition-colors">
             <Instagram size={14} className="text-brand-light" /> @prophysical_puyo
           </a>
@@ -27,12 +30,7 @@ export function PublicLayout() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="flex justify-between items-center">
             <Link to="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-brand-dark">
-                <Activity size={24} className="text-white" strokeWidth={2.5} />
-              </div>
-              <span className="font-display font-bold text-xl tracking-tight leading-none text-brand-dark">
-                Pro<span className="text-brand-light">Physical</span>
-              </span>
+              <img src="/logo.jpeg" alt="ProPhysical Logo" className="h-14 w-auto object-contain" />
             </Link>
 
             <nav className="hidden md:flex gap-8 items-center font-medium text-slate-600">
@@ -53,12 +51,7 @@ export function PublicLayout() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-12">
           <div className="col-span-1 md:col-span-1">
              <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-brand-dark">
-                <Activity size={24} className="text-white" strokeWidth={2.5} />
-              </div>
-              <span className="font-display font-bold text-xl tracking-tight leading-none text-brand-dark">
-                Pro<span className="text-brand-light">Physical</span>
-              </span>
+              <img src="/logo.jpeg" alt="ProPhysical Logo" className="h-20 w-auto object-contain" />
             </div>
             <p className="text-slate-500 text-sm mt-4">
               Mejoramos tu salud, movilidad y calidad de vida con atención profesional y personalizada.
@@ -95,7 +88,13 @@ export function PublicLayout() {
               </li>
               <li className="flex gap-3 items-center group">
                 <Phone size={18} className="text-brand-light flex-shrink-0" /> 
-                <span>+593 123 456 789</span>
+                <span>098 355 8404</span>
+              </li>
+              <li className="flex gap-3 items-center group">
+                <Facebook size={18} className="text-brand-light flex-shrink-0" /> 
+                <a href="https://www.facebook.com/prophysicalpuyo/?locale=es_LA" target="_blank" rel="noopener noreferrer" className="hover:text-brand-light transition-colors">
+                  ProPhysical Puyo
+                </a>
               </li>
               <li className="flex gap-3 items-center group">
                 <Instagram size={18} className="text-brand-light flex-shrink-0" /> 
@@ -119,6 +118,19 @@ export function PublicLayout() {
           </div>
         </div>
       </footer>
+
+      {/* Floating WhatsApp Button */}
+      <a
+        href="https://wa.me/593983558404?text=Hola,%20quisiera%20agendar%20una%20cita%20o%20conocer%20más%20acerca%20de%20ProPhysical."
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center focus:outline-none ring-4 ring-green-500/20 group"
+      >
+        <MessageCircle fill="white" size={32} />
+        <span className="absolute right-20 bg-white text-slate-800 text-sm font-bold py-2 px-4 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none after:content-[''] after:absolute after:top-1/2 after:-right-2 after:-translate-y-1/2 after:border-8 after:border-transparent after:border-l-white">
+          ¡Chatea con nosotros!
+        </span>
+      </a>
     </div>
   );
 }

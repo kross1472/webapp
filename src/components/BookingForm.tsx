@@ -10,6 +10,7 @@ export function BookingForm() {
   const [service, setService] = useState('Fisioterapia');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   
   const [loading, setLoading] = useState(false);
   const [successId, setSuccessId] = useState('');
@@ -77,6 +78,7 @@ export function BookingForm() {
       batch.set(detailsRef, {
         patientName: name,
         patientPhone: phone,
+        patientEmail: email,
         service: service
       });
 
@@ -119,7 +121,7 @@ export function BookingForm() {
               Agregar a Google Calendar
             </a>
             <a 
-              href={`https://wa.me/1234567890?text=Hola, acabo de agendar una cita para el ${date} a las ${time} para ${service}. Mi código es ${successId.slice(0,6)}`}
+              href={`https://wa.me/593983558404?text=Hola, acabo de agendar una cita para el ${date} a las ${time} para ${service}. Mi código es ${successId.slice(0,6)}`}
               target="_blank" rel="noopener noreferrer"
               className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-600 transition-colors shadow-sm"
             >
@@ -195,13 +197,26 @@ export function BookingForm() {
                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light focus:ring-2 focus:ring-brand-light/20 transition-all font-medium text-slate-700" 
              />
            </div>
-           <div>
-             <label className="block text-sm font-bold text-slate-700 mb-2">Teléfono / WhatsApp</label>
-             <input 
-               type="tel" required placeholder="099 999 9999"
-               value={phone} onChange={(e) => setPhone(e.target.value)}
-               className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light focus:ring-2 focus:ring-brand-light/20 transition-all font-medium text-slate-700" 
-             />
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div>
+               <label className="block text-sm font-bold text-slate-700 mb-2">Teléfono / WhatsApp</label>
+               <input 
+                 type="tel" required placeholder="099 999 9999"
+                 value={phone} onChange={(e) => setPhone(e.target.value)}
+                 className={`w-full bg-white border ${phone && !(/^\+?[0-9\s-]{9,15}$/.test(phone) && phone.replace(/[\s-]/g, '').length >= 9) ? 'border-red-400 focus:border-red-500 focus:ring-red-400/20 text-red-700' : 'border-slate-200 focus:border-brand-light focus:ring-brand-light/20 text-slate-700'} rounded-xl px-4 py-3 outline-none focus:ring-2 transition-all font-medium`} 
+               />
+               {phone && !(/^\+?[0-9\s-]{9,15}$/.test(phone) && phone.replace(/[\s-]/g, '').length >= 9) && (
+                 <p className="mt-1.5 text-xs text-red-500 font-medium">Formato inválido. Ingrese un número válido.</p>
+               )}
+             </div>
+             <div>
+               <label className="block text-sm font-bold text-slate-700 mb-2">Correo Electrónico</label>
+               <input 
+                 type="email" required placeholder="tu@email.com"
+                 value={email} onChange={(e) => setEmail(e.target.value)}
+                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light focus:ring-2 focus:ring-brand-light/20 transition-all font-medium text-slate-700" 
+               />
+             </div>
            </div>
 
            <div className="pt-4 border-t border-slate-100">

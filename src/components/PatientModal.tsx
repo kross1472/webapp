@@ -87,8 +87,11 @@ export function PatientModal({ isOpen, onClose, patient }: { isOpen: boolean, on
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-1">Teléfono</label>
-              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+52 123 456 7890"
-                className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:border-brand-light outline-none transition-colors" />
+              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="099 999 9999"
+                className={`w-full px-4 py-2 bg-white border ${phone && !(/^\+?[0-9\s-]{9,15}$/.test(phone) && phone.replace(/[\s-]/g, '').length >= 9) ? 'border-red-400 focus:border-red-500 text-red-700' : 'border-slate-200 focus:border-brand-light text-slate-700'} rounded-xl outline-none transition-colors`} />
+              {phone && !(/^\+?[0-9\s-]{9,15}$/.test(phone) && phone.replace(/[\s-]/g, '').length >= 9) && (
+                <p className="mt-1 text-xs text-red-500 font-medium">Formato inválido (mínimo 10 dígitos para WhatsApp).</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-1">Email (Opcional)</label>

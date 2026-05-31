@@ -114,5 +114,18 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
     }
+    match /mail/{mailId} {
+      allow create: if isStaff();
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+    match /promotions/{promoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /gallery/{imageId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

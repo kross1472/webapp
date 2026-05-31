@@ -49,6 +49,15 @@ export function AdminClinicalHistory() {
   const [treatment, setTreatment] = useState('');
   const [evolution, setEvolution] = useState('');
   const [observations, setObservations] = useState('');
+  
+  // Demographics (PDF)
+  const [idCard, setIdCard] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [phone, setPhone] = useState('');
+  const [occupation, setOccupation] = useState('');
+  const [address, setAddress] = useState('');
+  const [email, setEmail] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +80,13 @@ export function AdminClinicalHistory() {
       const historyRef = collection(db, 'patients', patientId, 'clinical_histories');
       await addDoc(historyRef, {
         date: new Date().toISOString().split('T')[0],
+        idCard,
+        age,
+        gender,
+        phone,
+        occupation,
+        address,
+        email,
         reasonForConsultation: reason,
         currentIllness: illness,
         painScale: Number(painScale),
@@ -185,6 +201,75 @@ export function AdminClinicalHistory() {
                />
              </div>
            </div>
+
+           {/* Demographics row 1 */}
+           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+             <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">C.I.</label>
+                <input 
+                  type="text" value={idCard} onChange={e => setIdCard(e.target.value)}
+                  placeholder="Cédula de Identidad"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-brand-light transition-all shadow-sm" 
+                />
+             </div>
+             <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Edad</label>
+                <input 
+                  type="text" value={age} onChange={e => setAge(e.target.value)}
+                  placeholder="Ej. 34 años"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-brand-light transition-all shadow-sm" 
+                />
+             </div>
+             <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Sexo</label>
+                <select 
+                  value={gender} onChange={e => setGender(e.target.value)}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-brand-light transition-all shadow-sm" 
+                >
+                  <option value="">Seleccionar</option>
+                  <option value="Femenino">Femenino</option>
+                  <option value="Masculino">Masculino</option>
+                  <option value="Otro">Otro</option>
+                </select>
+             </div>
+           </div>
+
+           {/* Demographics row 2 */}
+           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+             <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Teléfono</label>
+                <input 
+                  type="text" value={phone} onChange={e => setPhone(e.target.value)}
+                  placeholder="Ej. 0987654321"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-brand-light transition-all shadow-sm" 
+                />
+             </div>
+             <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Ocupación</label>
+                <input 
+                  type="text" value={occupation} onChange={e => setOccupation(e.target.value)}
+                  placeholder="Profesión/Oficio"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-brand-light transition-all shadow-sm" 
+                />
+             </div>
+             <div className="sm:col-span-2 lg:col-span-2">
+                <label className="block text-sm font-bold text-slate-700 mb-2">Correo (Gmail)</label>
+                <input 
+                  type="email" value={email} onChange={e => setEmail(e.target.value)}
+                  placeholder="usuario@gmail.com"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-brand-light transition-all shadow-sm" 
+                />
+             </div>
+           </div>
+           
+           <div>
+             <label className="block text-sm font-bold text-slate-700 mb-2">Dirección</label>
+             <input 
+               type="text" value={address} onChange={e => setAddress(e.target.value)}
+               placeholder="Dirección domiciliaria"
+               className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-brand-light transition-all shadow-sm" 
+             />
+           </div>
         </motion.div>
 
         {/* Anamnesis y Antecedentes */}
@@ -282,9 +367,11 @@ export function AdminClinicalHistory() {
     {/* Printable View - only visible when printing */}
     <div className="hidden print:block max-w-4xl mx-auto p-8 bg-white text-black font-sans">
       <div className="border-b-2 border-slate-800 pb-6 mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Pro<span className="text-teal-600">Physical</span></h1>
-          <p className="text-sm text-slate-500 mt-1">Av. Central 456, Edificio Salud - Local 102</p>
+        <div className="flex items-center">
+          <img src="/logo.jpeg" alt="ProPhysical Logo" className="h-16 w-auto object-contain mr-4" />
+          <div>
+            <p className="text-sm text-slate-500">Av. Central 456, Edificio Salud - Local 102</p>
+          </div>
         </div>
         <div className="text-right">
           <h2 className="text-xl font-bold text-slate-700">HISTORIA CLÍNICA</h2>
@@ -294,7 +381,7 @@ export function AdminClinicalHistory() {
 
       <div className="space-y-8">
         <section className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-y-4 gap-x-6">
             <div>
               <p className="text-xs font-bold uppercase text-slate-400 mb-1">Paciente</p>
               <p className="font-medium text-lg">{patientName || 'No especificado'}</p>
@@ -302,6 +389,34 @@ export function AdminClinicalHistory() {
             <div>
               <p className="text-xs font-bold uppercase text-slate-400 mb-1">Motivo de Consulta</p>
               <p className="font-medium text-lg">{reason || 'Ninguno'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase text-slate-400 mb-1">C.I.</p>
+              <p className="font-medium text-base">{idCard || '-'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase text-slate-400 mb-1">Edad</p>
+              <p className="font-medium text-base">{age || '-'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase text-slate-400 mb-1">Sexo</p>
+              <p className="font-medium text-base">{gender || '-'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase text-slate-400 mb-1">Teléfono</p>
+              <p className="font-medium text-base">{phone || '-'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase text-slate-400 mb-1">Ocupación</p>
+              <p className="font-medium text-base">{occupation || '-'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase text-slate-400 mb-1">Correo Electrónico (Gmail)</p>
+              <p className="font-medium text-base">{email || '-'}</p>
+            </div>
+            <div className="col-span-2">
+              <p className="text-xs font-bold uppercase text-slate-400 mb-1">Dirección</p>
+              <p className="font-medium text-base">{address || '-'}</p>
             </div>
           </div>
         </section>

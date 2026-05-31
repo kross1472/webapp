@@ -96,13 +96,8 @@ export function AdminLayout() {
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
       <aside className="w-64 bg-brand-dark fixed inset-y-0 left-0 flex flex-col text-white shadow-xl z-20">
-        <div className="p-6 flex items-center gap-3 border-b border-white/10">
-          <div className="bg-brand-light p-2 rounded-lg">
-             <Activity size={20} strokeWidth={2.5} />
-          </div>
-          <div>
-            <h2 className="font-display font-bold text-lg leading-tight tracking-tight">Admin<br/>Panel</h2>
-          </div>
+        <div className="p-4 flex items-center justify-center border-b border-white/10 bg-white/10 mt-2 mb-2 mx-4 rounded-xl shadow-inner">
+          <img src="/logo.jpeg" alt="ProPhysical Logo" className="h-16 w-auto object-contain bg-white rounded-lg p-2" />
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
@@ -118,8 +113,8 @@ export function AdminLayout() {
              <FileText size={18} /> Historias Clínicas
            </Link>
            {role === 'admin' && (
-             <Link to="/admin" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors">
-               <Settings size={18} /> Configuración
+             <Link to="/admin/content" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors">
+               <Settings size={18} /> Sitio Web
              </Link>
            )}
         </nav>

@@ -10,6 +10,7 @@ import { AdminLayout } from "./pages/AdminLayout";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { AdminClinicalHistory } from "./pages/AdminClinicalHistory";
 import { AdminPatients } from "./pages/AdminPatients";
+import { AdminContent } from "./pages/AdminContent";
 import { Toaster } from 'sonner';
 
 import { AuthProvider } from './lib/AuthContext';
@@ -28,6 +29,7 @@ export default function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="patients" element={<AdminPatients />} />
             <Route path="history/new" element={<AdminClinicalHistory />} />
+            <Route path="content" element={<AdminContent />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Calendar, dateFnsLocalizer, Views, View } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { Dialog } from '../components/ui/Dialog';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 const locales = {
   'es': es,
@@ -52,11 +53,26 @@ const CustomToolbar = (toolbar: any) => {
 };
 
 export function AdminCalendarView({ appointments, handleConfirm, handleCancel }: { appointments: any[], handleConfirm: (id: string) => void, handleCancel: (id: string) => void }) {
-  const [view, setView] = useState(Views.MONTH);
+  const [view, setView] = useState<View>(Views.MONTH);
   const [date, setDate] = useState(new Date());
   
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterService, setFilterService] = useState<string>('all');
+  const [filterPhysio, setFilterPhysio] = useState<string>('all');
+  const [physiotherapists, setPhysiotherapists] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchPhysios = async () => {
+      try {
+        const q = query(collection(db, 'users'), where('role', '==', 'physiotherapist'));
+        const snap = await getDocs(q);
+        setPhysiotherapists(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      } catch (error) {
+        console.error("Error fetching physiotherapists", error);
+      }
+    };
+    fetchPhysios();
+  }, []);
 
   const services = useMemo(() => {
     const s = new Set(appointments.map(a => a.service).filter(Boolean));
@@ -67,9 +83,10 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
     return appointments.filter(apt => {
       if (filterStatus !== 'all' && apt.status !== filterStatus) return false;
       if (filterService !== 'all' && apt.service !== filterService) return false;
+      if (filterPhysio !== 'all' && apt.physiotherapistId !== filterPhysio) return false;
       return true;
     });
-  }, [appointments, filterStatus, filterService]);
+  }, [appointments, filterStatus, filterService, filterPhysio]);
 
   const daySummary = useMemo(() => {
     const formattedDate = format(date, 'yyyy-MM-dd');
@@ -123,14 +140,14 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
   const eventStyleGetter = (event: any) => {
-    let style = {
+    let style: React.CSSProperties = {
       backgroundColor: '#f8fafc', // slate-50
       borderRadius: '8px',
       color: '#334155', // slate-700
       border: '1px solid #e2e8f0', // slate-200
       display: 'block',
       fontSize: '0.8rem',
-      fontWeight: '600',
+      fontWeight: 600,
       padding: '2px 6px',
       boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
     };
@@ -182,6 +199,14 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
               <option value="all">Todos los Servicios</option>
               {services.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
+            <select 
+              value={filterPhysio} 
+              onChange={e => setFilterPhysio(e.target.value)}
+              className="flex-1 min-w-0 text-sm border border-slate-200 rounded-lg bg-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-light/50 font-medium text-slate-700 truncate"
+            >
+              <option value="all">Todos los Fisioterapeutas</option>
+              {physiotherapists.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
+            </select>
           </div>
         </div>
         
@@ -227,11 +252,11 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
         components={{
           toolbar: CustomToolbar
         }}
-        view={view as any}
+        view={view}
         onView={(v) => setView(v)}
         date={date}
         onNavigate={(d) => setDate(d)}
-        eventPropGetter={eventStyleGetter}
+        eventPropGetter={eventStyleGetter as any}
         onSelectEvent={(e) => setSelectedEvent(e.resource)}
         onDrillDown={(d) => {
           setDate(d);

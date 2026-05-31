@@ -1,7 +1,7 @@
 // imports...
-import { Users, Calendar as CalendarIcon, TrendingUp, Activity, FileText, CheckCircle, Download, UserPlus, List, Grid } from "lucide-react";
+import { Users, Calendar as CalendarIcon, TrendingUp, Activity, FileText, CheckCircle, Download, UserPlus, List, Grid, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { collection, query, orderBy, onSnapshot, getDoc, doc, updateDoc, getDocs } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, getDoc, doc, updateDoc, getDocs, addDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -15,6 +15,32 @@ export function AdminDashboard() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('calendar');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [physiotherapists, setPhysiotherapists] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchPhysios = async () => {
+      try {
+        const qSnap = await getDocs(query(collection(db, 'users')));
+        setPhysiotherapists(qSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((u: any) => u.role === 'physiotherapist'));
+      } catch (e) {}
+    };
+    fetchPhysios();
+  }, []);
+
+  const handleAssign = async (id: string, physioId: string) => {
+    try {
+      if (physioId === '') {
+        await updateDoc(doc(db, 'appointments', id), { physiotherapistId: null });
+      } else {
+        await updateDoc(doc(db, 'appointments', id), { physiotherapistId: physioId });
+      }
+      toast.success("Fisioterapeuta asignado");
+    } catch (e) {
+      toast.error("Error al asignar");
+    }
+  };
+
 
   
   const handleBackup = async () => {
@@ -86,14 +112,42 @@ export function AdminDashboard() {
   const handleConfirm = async (id: string) => {
     try {
       await updateDoc(doc(db, 'appointments', id), { status: 'confirmed' });
-      toast.success("Cita confirmada exitosamente");
+      
+      const apt = appointments.find(a => a.id === id);
+      if (apt && apt.patientEmail) {
+        try {
+          await addDoc(collection(db, 'mail'), {
+            to: apt.patientEmail,
+            message: {
+              subject: "Confirmación de cita - ProPhysical",
+              html: `
+                <div style="font-family: sans-serif; color: #333;">
+                  <h2>¡Tu cita ha sido confirmada!</h2>
+                  <p>Hola <strong>${apt.patientName || 'Paciente'}</strong>,</p>
+                  <p>Te confirmamos que tu cita para el día <strong>${apt.date}</strong> a las <strong>${apt.time}</strong> ha sido agendada exitosamente en ProPhysical.</p>
+                  <p>Servicio: ${apt.service || 'Fisioterapia'}</p>
+                  <p>Por favor, llega 10 minutos antes de tu hora programada.</p>
+                  <p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
+                  <p>Atentamente,<br/>El equipo de ProPhysical</p>
+                </div>
+              `
+            }
+          });
+          toast.success("Cita confirmada y correo de confirmación enviado.");
+        } catch (e) {
+          toast.error("Cita confirmada, pero hubo un error enviando el correo.");
+          console.error(e);
+        }
+      } else {
+        toast.success("Cita confirmada exitosamente (sin email de paciente)");
+      }
     } catch (e) {
       toast.error("Error al confirmar la cita");
+      console.error(e);
     }
   };
 
   const handleCancel = async (id: string) => {
-    if (!window.confirm("¿Estás seguro de que deseas cancelar esta cita?")) return;
     try {
       await updateDoc(doc(db, 'appointments', id), { status: 'cancelled' });
       toast.success("Cita cancelada exitosamente");
@@ -131,20 +185,34 @@ export function AdminDashboard() {
         {/* Appointments List */}
         <div className={`lg:col-span-2 ${viewMode === 'list' ? 'bg-white rounded-2xl shadow-sm border border-slate-200 p-6' : ''}`}>
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-slate-800">Agenda</h2>
-            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
-               <button 
-                 onClick={() => setViewMode('list')} 
-                 className={`p-1.5 rounded-md flex items-center justify-center transition-colors ${viewMode === 'list' ? 'bg-white text-brand-dark shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-               >
-                 <List size={18} />
-               </button>
-               <button 
-                 onClick={() => setViewMode('calendar')} 
-                 className={`p-1.5 rounded-md flex items-center justify-center transition-colors ${viewMode === 'calendar' ? 'bg-white text-brand-dark shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-               >
-                 <Grid size={18} />
-               </button>
+            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">Agenda</h2>
+            <div className="flex items-center gap-4">
+              {viewMode === 'list' && (
+                <div className="relative">
+                  <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar paciente..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:border-brand-light outline-none"
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                 <button 
+                   onClick={() => setViewMode('list')} 
+                   className={`p-1.5 rounded-md flex items-center justify-center transition-colors ${viewMode === 'list' ? 'bg-white text-brand-dark shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                 >
+                   <List size={18} />
+                 </button>
+                 <button 
+                   onClick={() => setViewMode('calendar')} 
+                   className={`p-1.5 rounded-md flex items-center justify-center transition-colors ${viewMode === 'calendar' ? 'bg-white text-brand-dark shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                 >
+                   <Grid size={18} />
+                 </button>
+              </div>
             </div>
           </div>
           
@@ -152,8 +220,8 @@ export function AdminDashboard() {
              <AdminCalendarView appointments={appointments} handleConfirm={handleConfirm} handleCancel={handleCancel} />
           ) : (
             <div className="space-y-4">
-              {appointments.length === 0 && <p className="text-sm text-slate-500 italic">No hay citas recientes.</p>}
-              {appointments.map((apt, i) => (
+              {appointments.filter(apt => (apt.patientName || '').toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && <p className="text-sm text-slate-500 italic">No hay citas encontradas.</p>}
+              {appointments.filter(apt => (apt.patientName || '').toLowerCase().includes(searchQuery.toLowerCase())).map((apt, i) => (
                 <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-brand-light/30 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className="text-center w-20 px-2 border-r border-slate-200">
@@ -168,6 +236,16 @@ export function AdminDashboard() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                     <select
+                       value={apt.physiotherapistId || ''}
+                       onChange={(e) => handleAssign(apt.id, e.target.value)}
+                       className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-brand-light bg-white mr-2"
+                     >
+                       <option value="">Sin asignar</option>
+                       {physiotherapists.map(p => (
+                         <option key={p.id} value={p.id}>Fisio: {p.firstName} {p.lastName}</option>
+                       ))}
+                     </select>
                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
                        apt.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' :
                        apt.status === 'pending' ? 'bg-amber-100 text-amber-700' :
@@ -180,6 +258,9 @@ export function AdminDashboard() {
                          <CheckCircle size={18} />
                        </button>
                      )}
+                     <button onClick={() => handleCancel(apt.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200" title="Cancelar Cita">
+                       <X size={18} />
+                     </button>
                   </div>
                 </div>
               ))}

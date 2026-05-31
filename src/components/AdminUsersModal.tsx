@@ -11,6 +11,7 @@ export function AdminUsersModal({ onClose }: { onClose: () => void }) {
   
   // Form state
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'admin' | 'physiotherapist' | 'receptionist'>('receptionist');
 
@@ -38,9 +39,15 @@ export function AdminUsersModal({ onClose }: { onClose: () => void }) {
     // For this prompt's requirement (CRUD on /users), we'll simulate it by writing a doc with an ID derived from email
     const id = editingId || email.replace(/[^a-zA-Z0-9]/g, '');
     try {
-       await setDoc(doc(db, 'users', id), { email, role });
+       await setDoc(doc(db, 'users', id), { 
+         name,
+         email, 
+         role, 
+         createdAt: Date.now() 
+       }, { merge: true });
        toast.success(editingId ? "Usuario actualizado" : "Usuario creado");
        setEditingId(null);
+       setName('');
        setEmail('');
        setRole('receptionist');
        fetchUsers();
@@ -50,7 +57,6 @@ export function AdminUsersModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Seguro de que deseas eliminar este usuario?')) return;
     try {
        await deleteDoc(doc(db, 'users', id));
        toast.success("Usuario eliminado");
@@ -62,6 +68,7 @@ export function AdminUsersModal({ onClose }: { onClose: () => void }) {
 
   const handleEdit = (u: any) => {
     setEditingId(u.id);
+    setName(u.name || '');
     setEmail(u.email);
     setRole(u.role);
   };
@@ -79,7 +86,12 @@ export function AdminUsersModal({ onClose }: { onClose: () => void }) {
         <div className="p-6 overflow-y-auto flex-1">
           <form onSubmit={handleSubmit} className="mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-200">
             <h3 className="font-bold text-slate-700 mb-4">{editingId ? 'Editar Staff' : 'Nuevo Staff'}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Nombre</label>
+                <input required type="text" value={name} onChange={e => setName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-brand-light outline-none" />
+              </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-1">Email</label>
                 <input required type="email" value={email} onChange={e => setEmail(e.target.value)} disabled={!!editingId}
@@ -96,7 +108,7 @@ export function AdminUsersModal({ onClose }: { onClose: () => void }) {
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              {editingId && <Button type="button" variant="outline" onClick={() => {setEditingId(null); setEmail(''); setRole('receptionist');}}>Cancelar</Button>}
+              {editingId && <Button type="button" variant="outline" onClick={() => {setEditingId(null); setName(''); setEmail(''); setRole('receptionist');}}>Cancelar</Button>}
               <Button type="submit">{editingId ? 'Actualizar' : 'Añadir Staff'}</Button>
             </div>
           </form>
@@ -109,7 +121,8 @@ export function AdminUsersModal({ onClose }: { onClose: () => void }) {
               {users.map(u => (
                 <div key={u.id} className="flex justify-between items-center p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
                   <div>
-                    <p className="font-bold text-slate-800">{u.email}</p>
+                    <p className="font-bold text-slate-800">{u.name || (u.email.split('@')[0])}</p>
+                    <p className="text-sm text-slate-500 mb-1">{u.email}</p>
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-light/10 text-brand-dark uppercase">
                       {u.role}
                     </span>
