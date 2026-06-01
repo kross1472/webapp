@@ -7,10 +7,9 @@ import { toast } from 'sonner';
 export function BookingForm() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
-  const [service, setService] = useState('Fisioterapia');
+  const [service, setService] = useState('Fisioterapia y Rehabilitacion');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
   
   const [loading, setLoading] = useState(false);
   const [successId, setSuccessId] = useState('');
@@ -27,13 +26,24 @@ export function BookingForm() {
       try {
         const q = query(collection(db, 'appointments'), where('date', '==', date));
         const snap = await getDocs(q);
+        
+        // We need to check service in subcollection if not in main doc, or just fetch all appointments for the date and check service if it exists.
+        // Actually, let's just query by date, then filter by service if available in main doc.
         const counts: Record<string, number> = {};
-        snap.docs.forEach(doc => {
-          if (doc.data().status !== 'cancelled') {
-            const t = doc.data().time;
-            counts[t] = (counts[t] || 0) + 1;
+        for (const docSnapshot of snap.docs) {
+          const data = docSnapshot.data();
+          if (data.status === 'confirmed') {
+            // Support older appointments that don't have service in main doc by checking if it matches or if it's missing (assume it could be the same)
+            // But if we start saving service in main doc, we can just check data.service
+            // For backward compatibility, we'll fetch details if service is missing? That's too many reads.
+            // Let's assume we match where data.service === service or if data.service is missing, we still count it or ignore? Let's ignore it unless it matches.
+            let docService = data.service;
+            if (docService === service || docService === undefined) { 
+              const t = data.time;
+              counts[t] = (counts[t] || 0) + 1;
+            }
           }
-        });
+        }
         const full = Object.keys(counts).filter(t => counts[t] >= 3);
         setUnavailableHours(full);
         if (full.includes(time)) {
@@ -44,7 +54,7 @@ export function BookingForm() {
       }
     }
     checkAvailability();
-  }, [date, time]);
+  }, [date, time, service]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,10 +63,13 @@ export function BookingForm() {
       const q = query(collection(db, 'appointments'), where('date', '==', date));
       const snap = await getDocs(q);
       
-      const timeCount = snap.docs.filter(d => d.data().time === time && d.data().status !== 'cancelled').length;
+      const timeCount = snap.docs.filter(d => {
+        const data = d.data();
+        return data.time === time && data.status === 'confirmed' && (data.service === service || data.service === undefined);
+      }).length;
       
       if (timeCount >= 3) {
-        toast.error('Lo sentimos, este horario ya está lleno. Por favor, selecciona otra hora o día.');
+        toast.error('Lo sentimos, este horario ya está lleno para ese servicio. Por favor, selecciona otra hora o día.');
         setLoading(false);
         return;
       }
@@ -69,6 +82,7 @@ export function BookingForm() {
       batch.set(newDocRef, {
         date,
         time,
+        service, // Added here to make it easier to query
         status: 'pending',
         createdAt: Date.now(),
         updatedAt: Date.now()
@@ -78,7 +92,6 @@ export function BookingForm() {
       batch.set(detailsRef, {
         patientName: name,
         patientPhone: phone,
-        patientEmail: email,
         service: service
       });
 
@@ -94,14 +107,6 @@ export function BookingForm() {
   };
 
   if (successId) {
-    const calendarParams = new URLSearchParams({
-      action: 'TEMPLATE',
-      text: `Cita: ${service}`,
-      dates: `${date.replace(/-/g, '')}T${time.replace(':', '')}00Z/${date.replace(/-/g, '')}T${Number(time.split(':')[0])+1}0000Z`,
-      details: 'Cita en ProPhysical',
-      location: 'ProPhysical Fisioterapia y Rehabilitación'
-    });
-    
     return (
       <div className="bg-emerald-50 border border-emerald-100 rounded-3xl p-8 md:p-12 text-center max-w-2xl mx-auto shadow-sm">
          <div className="w-16 h-16 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto mb-6">
@@ -112,20 +117,13 @@ export function BookingForm() {
          <h3 className="text-2xl font-bold text-slate-800 mb-2">¡Cita Solicitada con Éxito!</h3>
          <p className="text-slate-600 mb-8 font-medium">Nos contactaremos contigo por WhatsApp para la confirmación final.</p>
          
-         <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <a 
-              href={`https://calendar.google.com/calendar/render?${calendarParams.toString()}`}
-              target="_blank" rel="noopener noreferrer"
-              className="bg-white border-2 border-brand-light text-brand-dark px-6 py-3 rounded-xl font-bold hover:bg-brand-light/10 transition-colors shadow-sm"
-            >
-              Agregar a Google Calendar
-            </a>
+         <div className="flex flex-col flex-wrap sm:flex-row justify-center gap-4">
             <a 
               href={`https://wa.me/593983558404?text=Hola, acabo de agendar una cita para el ${date} a las ${time} para ${service}. Mi código es ${successId.slice(0,6)}`}
               target="_blank" rel="noopener noreferrer"
               className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-600 transition-colors shadow-sm"
             >
-              Avisar por WhatsApp
+              Confirmar por WhatsApp
             </a>
          </div>
          <div className="mt-8">
@@ -149,10 +147,10 @@ export function BookingForm() {
                value={service} onChange={(e) => setService(e.target.value)}
                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light focus:ring-2 focus:ring-brand-light/20 transition-all font-medium text-slate-700"
              >
-               <option>Fisioterapia General</option>
-               <option>Rehabilitación Deportiva</option>
+               <option>Fisioterapia y Rehabilitacion</option>
                <option>Descarga Muscular</option>
-               <option>Terapia Geriátrica</option>
+               <option>Masaje Terapeutico (relajante-descontracturante)</option>
+               <option>Crioterapia</option>
              </select>
            </div>
            
@@ -197,7 +195,7 @@ export function BookingForm() {
                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light focus:ring-2 focus:ring-brand-light/20 transition-all font-medium text-slate-700" 
              />
            </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
              <div>
                <label className="block text-sm font-bold text-slate-700 mb-2">Teléfono / WhatsApp</label>
                <input 
@@ -208,14 +206,6 @@ export function BookingForm() {
                {phone && !(/^\+?[0-9\s-]{9,15}$/.test(phone) && phone.replace(/[\s-]/g, '').length >= 9) && (
                  <p className="mt-1.5 text-xs text-red-500 font-medium">Formato inválido. Ingrese un número válido.</p>
                )}
-             </div>
-             <div>
-               <label className="block text-sm font-bold text-slate-700 mb-2">Correo Electrónico</label>
-               <input 
-                 type="email" required placeholder="tu@email.com"
-                 value={email} onChange={(e) => setEmail(e.target.value)}
-                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light focus:ring-2 focus:ring-brand-light/20 transition-all font-medium text-slate-700" 
-               />
              </div>
            </div>
 

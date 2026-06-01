@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
-import { X, FileText, Calendar, Activity, Printer } from 'lucide-react';
+import { X, FileText, Calendar, Activity, Printer, Edit2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export function PatientHistoryModal({ isOpen, onClose, patient }: { isOpen: boolean, onClose: () => void, patient: any }) {
+  const navigate = useNavigate();
   const [histories, setHistories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -85,11 +87,20 @@ export function PatientHistoryModal({ isOpen, onClose, patient }: { isOpen: bool
                     <div className="flex items-center gap-2 text-brand-dark font-bold">
                        <Calendar size={18} /> {new Date(h.createdAt).toLocaleDateString()}
                     </div>
-                    {h.painScale !== undefined && (
-                      <span className="text-sm font-semibold text-brand-light px-3 py-1 bg-brand-light/10 rounded-full">
-                         EVA: {h.painScale}/10
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {h.painScale !== undefined && (
+                        <span className="text-sm font-semibold text-brand-light px-3 py-1 bg-brand-light/10 rounded-full">
+                           EVA: {h.painScale}/10
+                        </span>
+                      )}
+                      <button 
+                        onClick={() => navigate('/admin/history/new', { state: { patient, history: h } })}
+                        className="p-1.5 text-brand-dark bg-brand-light/10 hover:bg-brand-light/20 rounded-lg transition-colors print:hidden"
+                        title="Modificar historia"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -112,6 +123,34 @@ export function PatientHistoryModal({ isOpen, onClose, patient }: { isOpen: bool
                       <p className="text-sm text-slate-800 whitespace-pre-wrap">{h.treatmentPlan || 'No especificado'}</p>
                     </div>
                   </div>
+                  {(h.treatmentStartDate || h.recommendedSessions || h.attendedSessionsCount || h.attendedDates) && (
+                    <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {h.treatmentStartDate && (
+                        <div>
+                          <p className="text-xs font-bold uppercase text-slate-400 mb-1">Inicio de Tratamiento</p>
+                          <p className="text-sm text-slate-800">{h.treatmentStartDate}</p>
+                        </div>
+                      )}
+                      {h.recommendedSessions && (
+                        <div>
+                          <p className="text-xs font-bold uppercase text-slate-400 mb-1">Recomendadas</p>
+                          <p className="text-sm text-slate-800">{h.recommendedSessions}</p>
+                        </div>
+                      )}
+                      {h.attendedSessionsCount && (
+                        <div>
+                          <p className="text-xs font-bold uppercase text-slate-400 mb-1">Asistidas</p>
+                          <p className="text-sm text-slate-800">{h.attendedSessionsCount}</p>
+                        </div>
+                      )}
+                      {h.attendedDates && (
+                        <div>
+                          <p className="text-xs font-bold uppercase text-slate-400 mb-1">Días Asistidos</p>
+                          <p className="text-sm text-slate-800 truncate" title={h.attendedDates}>{h.attendedDates}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -174,6 +213,14 @@ export function PatientHistoryModal({ isOpen, onClose, patient }: { isOpen: bool
                    <p className="text-xs font-bold uppercase text-slate-500">Tratamiento e Indicaciones</p>
                    <p className="text-sm whitespace-pre-wrap">{h.treatmentPlan || '-'}</p>
                  </div>
+                 {(h.treatmentStartDate || h.recommendedSessions || h.attendedSessionsCount || h.attendedDates) && (
+                   <div className="col-span-2 grid grid-cols-4 gap-4 mt-2">
+                     {h.treatmentStartDate && <div><p className="text-xs font-bold uppercase text-slate-500">Inicio</p><p className="text-sm">{h.treatmentStartDate}</p></div>}
+                     {h.recommendedSessions && <div><p className="text-xs font-bold uppercase text-slate-500">Recomendadas</p><p className="text-sm">{h.recommendedSessions}</p></div>}
+                     {h.attendedSessionsCount && <div><p className="text-xs font-bold uppercase text-slate-500">Asistidas</p><p className="text-sm">{h.attendedSessionsCount}</p></div>}
+                     {h.attendedDates && <div><p className="text-xs font-bold uppercase text-slate-500">Días Asistidos</p><p className="text-sm">{h.attendedDates}</p></div>}
+                   </div>
+                 )}
                </div>
              </div>
           ))}

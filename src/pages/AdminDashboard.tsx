@@ -1,5 +1,5 @@
 // imports...
-import { Users, Calendar as CalendarIcon, TrendingUp, Activity, FileText, CheckCircle, Download, UserPlus, List, Grid, Search, X } from "lucide-react";
+import { Users, Calendar as CalendarIcon, TrendingUp, Activity, FileText, CheckCircle, UserPlus, List, Grid, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { collection, query, orderBy, onSnapshot, getDoc, doc, updateDoc, getDocs, addDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -41,51 +41,6 @@ export function AdminDashboard() {
     }
   };
 
-
-  
-  const handleBackup = async () => {
-    if (role !== 'admin') {
-      toast.error('No tienes permisos suficientes para descargar el backup.');
-      return;
-    }
-    try {
-      toast.info('Generando backup, por favor espera...');
-      
-      const apsSnap = await getDocs(collection(db, 'appointments'));
-      const appointmentsData = await Promise.all(apsSnap.docs.map(async d => {
-         let detail = {};
-         try {
-           const dSnap = await getDoc(doc(db, 'appointments', d.id, 'details', 'info'));
-           if (dSnap.exists()) detail = dSnap.data();
-         } catch(e) {}
-         return { id: d.id, ...d.data(), details: detail };
-      }));
-
-      const usersSnap = await getDocs(collection(db, 'users'));
-      const usersData = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-      const backup = {
-        timestamp: new Date().toISOString(),
-        appointments: appointmentsData,
-        users: usersData
-      };
-
-      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `backup_prophysical_${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      toast.success('Backup descargado exitosamente');
-    } catch (error) {
-      console.error(error);
-      toast.error('Error al generar el backup');
-    }
-  };
-
   useEffect(() => {
     const q = query(collection(db, 'appointments'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, async (snapshot) => {
@@ -109,9 +64,11 @@ export function AdminDashboard() {
     return unsubscribe;
   }, []);
 
-  const handleConfirm = async (id: string) => {
+  const handleConfirm = async (id: string, physioId?: string) => {
     try {
-      await updateDoc(doc(db, 'appointments', id), { status: 'confirmed' });
+      const updateData: any = { status: 'confirmed' };
+      if (physioId) updateData.physiotherapistId = physioId;
+      await updateDoc(doc(db, 'appointments', id), updateData);
       
       const apt = appointments.find(a => a.id === id);
       if (apt && apt.patientEmail) {
@@ -156,12 +113,42 @@ export function AdminDashboard() {
     }
   };
 
-  const stats = [
-    { title: "Citas Hoy", value: appointments.length.toString(), icon: CalendarIcon, change: "Actualizado hoy" },
-    { title: "Pacientes Activos", value: "12", icon: Users, change: "En seguimiento" },
-    { title: "Historias Clínicas", value: "34", icon: Activity, change: "+2 nuevas" },
-    { title: "Rendimiento Mensual", value: "92%", icon: TrendingUp, change: "Últimos 30 días" },
-  ];
+  const [stats, setStats] = useState([
+    { title: "Citas Hoy", value: "0", icon: CalendarIcon, change: "Actualizado hoy" },
+    { title: "Pacientes Activos", value: "0", icon: Users, change: "En seguimiento" },
+    { title: "Historias Clínicas", value: "0", icon: Activity, change: "Registradas" },
+  ]);
+
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const fetchRealStats = async () => {
+      try {
+        const patientsSnap = await getDocs(collection(db, 'patients'));
+        let historiesCount = 0;
+        for (const pt of patientsSnap.docs) {
+          const hSnap = await getDocs(collection(db, 'patients', pt.id, 'clinical_histories'));
+          historiesCount += hSnap.size;
+        }
+
+        setStats(prev => prev.map(s => {
+          if (s.title === "Pacientes Activos") return { ...s, value: patientsSnap.size.toString() };
+          if (s.title === "Historias Clínicas") return { ...s, value: historiesCount.toString() };
+          return s;
+        }));
+      } catch (e) {
+        console.error("Error fetching stats:", e);
+      }
+    };
+    fetchRealStats();
+  }, []);
+
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayCount = appointments.filter(a => a.date === today).length;
+    setStats(prev => prev.map(s => 
+      s.title === "Citas Hoy" ? { ...s, value: todayCount.toString() } : s
+    ));
+  }, [appointments]);
 
   return (
     <div className="space-y-8">
@@ -282,9 +269,6 @@ export function AdminDashboard() {
                 <>
                   <button onClick={() => setIsUsersModalOpen(true)} className="w-full justify-start text-slate-700 bg-slate-50 hover:bg-slate-100 font-semibold px-4 py-3 rounded-xl transition-colors border border-slate-200 flex gap-3 items-center">
                      <UserPlus size={18} /> Gestionar Staff
-                  </button>
-                  <button onClick={handleBackup} className="w-full justify-start text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-semibold px-4 py-3 rounded-xl transition-colors border border-emerald-200 flex gap-3 items-center">
-                     <Download size={18} /> Descargar Backup
                   </button>
                 </>
               )}

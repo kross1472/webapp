@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Check if there is a local demo session
     const localDemoStr = localStorage.getItem('demo_admin');
     if (localDemoStr) {
-      setUser({ uid: 'mock-admin-uid', email: 'admin@prophysical.com', displayName: 'Administrador (Demo)' } as unknown as User);
+      setUser({ uid: 'mock-admin-uid', email: 'admin@prophysical.com', displayName: 'Personal Administrativo (Demo)' } as unknown as User);
       setRole('admin');
       setLoading(false);
       return;
@@ -85,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const sanitizedU = u.trim().toLowerCase();
     if (sanitizedU === 'admin' && p === 'admin2026') {
       localStorage.setItem('demo_admin', 'true');
-      setUser({ uid: 'mock-admin-uid', email: 'admin@prophysical.com', displayName: 'Administrador (Demo)' } as unknown as User);
+      setUser({ uid: 'mock-admin-uid', email: 'admin@prophysical.com', displayName: 'Personal Administrativo (Demo)' } as unknown as User);
       setRole('admin');
       return;
     }

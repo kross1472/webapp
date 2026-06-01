@@ -60,7 +60,7 @@ export function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-2xl text-slate-800">
             <span className="inline-block px-3 py-1 bg-teal-50 text-brand-light text-xs font-bold uppercase tracking-widest rounded-full mb-4">
-              Atención Médica de Excelencia
+              Atención Fisioterapéutica de excelencia
             </span>
             <h1 className="text-5xl md:text-6xl font-display font-extrabold leading-[1.1] mb-6 tracking-tight">
               Recupera tu <span className="text-brand-light">movilidad</span>, bienestar y calidad de vida.
@@ -162,62 +162,28 @@ export function Home() {
         </div>
       </section>
 
-      {/* Servicios y Precios */}
+      {/* Servicios */}
       <section id="servicios" className="bg-brand-dark text-white py-24 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-display font-bold mb-4">Servicios y Tarifas</h2>
-            <p className="text-white/80 max-w-2xl mx-auto">Planes accesibles diseñados para garantizar su completa recuperación.</p>
+            <h2 className="text-3xl font-display font-bold mb-4">Nuestros Servicios</h2>
+            <p className="text-white/80 max-w-2xl mx-auto">Tratamientos especializados para garantizar su completa recuperación y bienestar.</p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-16">
-            {packages.map((pkg, i) => (
-              <div key={i} className={cn("relative rounded-2xl p-6", pkg.isPopular ? "bg-white text-slate-800 shadow-xl scale-105 z-10" : "bg-white/10 text-white border border-white/20")}>
-                {pkg.isPopular && <div className="absolute top-0 right-6 -translate-y-1/2 bg-brand-light text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Más Popular</div>}
-                <div className="mb-4">
-                  <h3 className="text-xl font-bold mb-1">{pkg.name}</h3>
-                  <p className={cn("text-sm", pkg.isPopular ? "text-slate-500" : "text-white/70")}>{pkg.desc}</p>
-                </div>
-                <div className="mb-6 flex items-baseline gap-1">
-                  <span className="text-4xl font-display font-bold">${pkg.price}</span>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 max-w-6xl mx-auto">
+            {["Fisioterapia y Rehabilitacion", "Descarga Muscular", "Masaje Terapeutico (relajante-descontracturante)", "Crioterapia"].map((service, i) => (
+              <div key={i} className="bg-white/10 p-6 rounded-2xl border border-white/20 backdrop-blur-sm flex flex-col items-center text-center hover:bg-white/15 transition-colors">
+                <Activity className="text-brand-light mb-4" size={32}/>
+                <h3 className="text-lg font-bold mb-4 leading-tight">{service}</h3>
                 <Button 
-                  variant={pkg.isPopular ? "primary" : "outline"} 
-                  className={cn("w-full", !pkg.isPopular && "text-white border-white/30 hover:bg-white hover:text-brand-dark")}
+                  variant="outline" 
+                  className="mt-auto w-full text-white border-white/30 hover:bg-white hover:text-brand-dark"
                   onClick={() => document.getElementById('agendar-cita')?.scrollIntoView({ behavior: 'smooth' })}
                 >
-                  Seleccionar
+                  Agendar
                 </Button>
               </div>
             ))}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <div className="bg-white/10 p-6 rounded-2xl border border-white/20 backdrop-blur-sm">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Activity className="text-brand-light" size={20}/> Descargas y Masajes</h3>
-              <ul className="space-y-4">
-                <li className="flex justify-between items-center border-b border-white/10 pb-4">
-                  <span>Cuerpo completo</span>
-                  <span className="font-bold text-brand-light">$20</span>
-                </li>
-                <li className="flex justify-between items-center">
-                  <span>Medio cuerpo</span>
-                  <span className="font-bold text-brand-light">$15</span>
-                </li>
-              </ul>
-            </div>
-            <div className="bg-white/10 p-6 rounded-2xl border border-white/20 backdrop-blur-sm">
-               <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><CheckCircle2 className="text-brand-light" size={20}/> Crioterapia</h3>
-               <ul className="space-y-4">
-                <li className="flex justify-between items-center border-b border-white/10 pb-4">
-                  <div>
-                    <span className="block">Sesión Grupal</span>
-                    <span className="text-xs text-white/50">Grupos de 3 a 4 personas</span>
-                  </div>
-                  <span className="font-bold text-brand-light">$10 / pax</span>
-                </li>
-              </ul>
-            </div>
           </div>
         </div>
       </section>

@@ -18,12 +18,37 @@ export function AdminClinicalHistory() {
   // Form State
   const [patientId, setPatientId] = useState('temp-patient-' + Math.floor(Math.random() * 1000));
   const [patientName, setPatientName] = useState('');
+  const [historyId, setHistoryId] = useState<string | null>(null);
 
   useEffect(() => {
     if (location.state?.patient) {
       const p = location.state.patient;
       setPatientId(p.id);
       setPatientName(`${p.firstName || ''} ${p.lastName || ''}`.trim());
+    }
+    if (location.state?.history) {
+      const h = location.state.history;
+      setHistoryId(h.id);
+      setReason(h.reasonForConsultation || '');
+      setIllness(h.currentIllness || '');
+      setPainScale(h.painScale || 0);
+      setMedicalHist(h.medicalHistory || '');
+      setPhysicalExam(h.physicalExamination || '');
+      setDiagnosis(h.physiotherapyDiagnosis || '');
+      setTreatment(h.treatmentPlan || '');
+      setEvolution(h.evolution || '');
+      setObservations(h.observations || '');
+      setTreatmentStartDate(h.treatmentStartDate || '');
+      setRecommendedSessions(h.recommendedSessions || '');
+      setAttendedSessionsCount(h.attendedSessionsCount || '');
+      setAttendedDates(h.attendedDates || '');
+      setIdCard(h.idCard || '');
+      setAge(h.age || '');
+      setGender(h.gender || '');
+      setPhone(h.phone || '');
+      setOccupation(h.occupation || '');
+      setAddress(h.address || '');
+      setEmail(h.email || '');
     }
   }, [location.state]);
 
@@ -49,6 +74,10 @@ export function AdminClinicalHistory() {
   const [treatment, setTreatment] = useState('');
   const [evolution, setEvolution] = useState('');
   const [observations, setObservations] = useState('');
+  const [treatmentStartDate, setTreatmentStartDate] = useState('');
+  const [recommendedSessions, setRecommendedSessions] = useState<number | ''>('');
+  const [attendedSessionsCount, setAttendedSessionsCount] = useState<number | ''>('');
+  const [attendedDates, setAttendedDates] = useState('');
   
   // Demographics (PDF)
   const [idCard, setIdCard] = useState('');
@@ -66,6 +95,29 @@ export function AdminClinicalHistory() {
       return;
     }
     
+    if (treatmentStartDate) {
+      const selectedDate = new Date(treatmentStartDate);
+      const today = new Date();
+      // Reset hours to compare only dates
+      today.setHours(0, 0, 0, 0);
+      selectedDate.setHours(0, 0, 0, 0); // We only get YYYY-MM-DD from input, so it's already local midnight-ish
+
+      if (selectedDate > today) {
+        toast.error("La fecha de inicio de tratamiento no puede ser futura");
+        return;
+      }
+    }
+
+    if (recommendedSessions !== '' && Number(recommendedSessions) < 0) {
+      toast.error("Las sesiones recomendadas no pueden ser negativas");
+      return;
+    }
+
+    if (attendedSessionsCount !== '' && Number(attendedSessionsCount) < 0) {
+      toast.error("Las sesiones asistidas no pueden ser negativas");
+      return;
+    }
+    
     setLoading(true);
     try {
       // Create patient if it doesn't really exist (mocking the flow for now)
@@ -77,8 +129,7 @@ export function AdminClinicalHistory() {
       }, { merge: true });
 
       // Add Clinical History subcollection
-      const historyRef = collection(db, 'patients', patientId, 'clinical_histories');
-      await addDoc(historyRef, {
+      const historyData = {
         date: new Date().toISOString().split('T')[0],
         idCard,
         age,
@@ -96,10 +147,24 @@ export function AdminClinicalHistory() {
         treatmentPlan: treatment,
         evolution: evolution,
         observations: observations,
-        createdAt: Date.now()
-      });
+        treatmentStartDate,
+        recommendedSessions,
+        attendedSessionsCount,
+        attendedDates,
+      };
 
-      toast.success("Historia Clínica guardada con éxito");
+      if (historyId) {
+        // Update existing history
+        const hRef = doc(db, 'patients', patientId, 'clinical_histories', historyId);
+        await setDoc(hRef, { ...historyData, updatedAt: Date.now() }, { merge: true });
+        toast.success("Historia Clínica actualizada con éxito");
+      } else {
+        // Create new history
+        const historyRef = collection(db, 'patients', patientId, 'clinical_histories');
+        await addDoc(historyRef, { ...historyData, createdAt: Date.now() });
+        toast.success("Historia Clínica guardada con éxito");
+      }
+      
       setSuccess(true);
     } catch (error) {
       console.error(error);
@@ -152,7 +217,7 @@ export function AdminClinicalHistory() {
         </button>
         <div>
           <h1 className="text-2xl font-display font-bold text-slate-800 flex items-center gap-3">
-             <FileText className="text-brand-light" /> Nueva Historia Clínica
+             <FileText className="text-brand-light" /> {historyId ? 'Editar Historia Clínica' : 'Nueva Historia Clínica'}
           </h1>
           <p className="text-slate-500 text-sm">Registro detallado de evaluación y plan de tratamiento fisioterapéutico</p>
         </div>
@@ -170,7 +235,8 @@ export function AdminClinicalHistory() {
                  onFocus={() => setShowDropdown(true)}
                  onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
                  placeholder="Ej. Juan Pérez"
-                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all shadow-sm" 
+                 disabled={!!historyId}
+                 className={`w-full border rounded-xl px-4 py-3 outline-none transition-all shadow-sm ${historyId ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200 focus:border-brand-light'}`} 
                />
                {showDropdown && patientName.length > 0 && filteredPatients.length > 0 && (
                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
@@ -328,7 +394,43 @@ export function AdminClinicalHistory() {
         {/* Tratamiento y Observaciones */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="p-6 md:p-8 space-y-6">
            <h3 className="text-lg font-bold text-slate-800 mb-4">Plan y Evolución</h3>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+             <div>
+               <label className="block text-sm font-bold text-slate-700 mb-2">Fecha Inicio Tratamiento</label>
+               <input 
+                 type="date" 
+                 max={new Date().toISOString().split('T')[0]}
+                 value={treatmentStartDate} onChange={e => setTreatmentStartDate(e.target.value)}
+                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all shadow-sm text-slate-700" 
+               />
+             </div>
+             <div>
+               <label className="block text-sm font-bold text-slate-700 mb-2">Sesiones Recomendadas</label>
+               <input 
+                 type="number" min="0" value={recommendedSessions} onChange={e => setRecommendedSessions(e.target.value === '' ? '' : Number(e.target.value))}
+                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all shadow-sm text-slate-700" 
+                 placeholder="Ej. 10"
+               />
+             </div>
+             <div>
+               <label className="block text-sm font-bold text-slate-700 mb-2">Sesiones Asistidas</label>
+               <input 
+                 type="number" min="0" value={attendedSessionsCount} onChange={e => setAttendedSessionsCount(e.target.value === '' ? '' : Number(e.target.value))}
+                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all shadow-sm text-slate-700" 
+                 placeholder="Ej. 3"
+               />
+             </div>
+             <div>
+               <label className="block text-sm font-bold text-slate-700 mb-2">Días Asistidos</label>
+               <input 
+                 type="text" value={attendedDates} onChange={e => setAttendedDates(e.target.value)}
+                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all shadow-sm text-slate-700" 
+                 placeholder="Ej. 12/05, 14/05"
+               />
+             </div>
+           </div>
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
              <div>
                <label className="block text-sm font-bold text-slate-700 mb-2">Plan de Tratamiento / Objetivos</label>
                <textarea 
@@ -357,7 +459,7 @@ export function AdminClinicalHistory() {
            <div className="pt-6 mt-6 border-t border-slate-100 flex justify-end gap-4">
              <Button type="button" variant="ghost" onClick={() => navigate('/admin')}>Cancelar</Button>
              <Button type="submit" size="lg" className="gap-2 shadow-lg" disabled={loading}>
-               <Save size={20} /> {loading ? 'Guardando...' : 'Guardar Historia Clínica'}
+               <Save size={20} /> {loading ? 'Guardando...' : (historyId ? 'Actualizar Historia Clínica' : 'Guardar Historia Clínica')}
              </Button>
            </div>
         </motion.div>
@@ -456,6 +558,32 @@ export function AdminClinicalHistory() {
         <section>
           <h3 className="text-lg font-bold border-b border-slate-200 pb-2 mb-4">Plan y Tratamiento</h3>
           <div className="space-y-4">
+            <div className="grid grid-cols-4 gap-4 mb-4">
+              {treatmentStartDate && (
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Inicio de Tratamiento</p>
+                  <p className="text-sm font-semibold">{treatmentStartDate}</p>
+                </div>
+              )}
+              {recommendedSessions !== '' && (
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Sesiones Recomendadas</p>
+                  <p className="text-sm font-semibold">{recommendedSessions}</p>
+                </div>
+              )}
+              {attendedSessionsCount !== '' && (
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Sesiones Asistidas</p>
+                  <p className="text-sm font-semibold">{attendedSessionsCount}</p>
+                </div>
+              )}
+              {attendedDates && (
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Días Asistidos</p>
+                  <p className="text-sm font-semibold">{attendedDates}</p>
+                </div>
+              )}
+            </div>
             <div>
               <p className="text-xs font-bold uppercase text-slate-400 mb-1">Plan de Tratamiento / Objetivos</p>
               <p className="text-sm leading-relaxed">{treatment || 'Sin registro'}</p>

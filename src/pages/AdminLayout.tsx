@@ -104,11 +104,9 @@ export function AdminLayout() {
            <Link to="/admin" className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/10 text-white font-medium">
              <CalendarIcon size={18} className="text-brand-light" /> Inicio / Agenda
            </Link>
-           {role !== 'physiotherapist' && (
-             <Link to="/admin/patients" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors">
-               <Users size={18} /> Pacientes
-             </Link>
-           )}
+           <Link to="/admin/patients" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors">
+             <Users size={18} /> Pacientes
+           </Link>
            <Link to="/admin/history/new" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors">
              <FileText size={18} /> Historias Clínicas
            </Link>
@@ -130,8 +128,10 @@ export function AdminLayout() {
       <main className="flex-1 ml-64 p-8">
         <header className="flex justify-between items-center mb-8 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-4">
-             <h1 className="text-2xl font-display font-bold text-slate-800">Panel Administrativo</h1>
-             <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">{role}</span>
+              <h1 className="text-2xl font-display font-bold text-slate-800">Panel Administrativo</h1>
+              <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">
+                {role === 'admin' ? 'Personal Administrativo' : role === 'physiotherapist' ? 'Fisioterapeuta' : role === 'receptionist' ? 'Recepcionista' : role}
+              </span>
           </div>
           <div className="flex items-center gap-4">
              <div className="text-right">

@@ -12,7 +12,7 @@ export function PublicLayout() {
             <MapPin size={14} className="text-brand-light" /> Pro Physical, Puyo
           </a>
           <div className="flex items-center gap-2">
-            <Clock size={14} className="text-brand-light" /> Lunes a Sábado: 8:00 AM - 9:00 PM
+            <Clock size={14} className="text-brand-light" /> Lunes a Viernes: 8:00 AM - 9:00 PM | Sáb - Dom: Con Cita Previa
           </div>
         </div>
         <div className="flex gap-4">
@@ -33,10 +33,10 @@ export function PublicLayout() {
               <img src="/logo.jpeg" alt="ProPhysical Logo" className="h-14 w-auto object-contain" />
             </Link>
 
-            <nav className="hidden md:flex gap-8 items-center font-medium text-slate-600">
-              <Link to="/#servicios" className="hover:text-brand-light transition-colors">Servicios</Link>
-              <Link to="/#nosotros" className="hover:text-brand-light transition-colors">Nosotros</Link>
-              <Link to="/#especialidades" className="hover:text-brand-light transition-colors">Especialidades</Link>
+            <nav className="hidden md:flex gap-4 items-center">
+              <button onClick={() => document.getElementById('servicios')?.scrollIntoView({ behavior: 'smooth' })} className="px-5 py-2 rounded-full text-white font-semibold shadow-md transition-all bg-brand-dark hover:brightness-110">Servicios</button>
+              <button onClick={() => document.getElementById('nosotros')?.scrollIntoView({ behavior: 'smooth' })} className="px-5 py-2 rounded-full text-white font-semibold shadow-md transition-all bg-brand-dark hover:brightness-110">Nosotros</button>
+              <button onClick={() => document.getElementById('especialidades')?.scrollIntoView({ behavior: 'smooth' })} className="px-5 py-2 rounded-full text-white font-semibold shadow-md transition-all bg-brand-dark hover:brightness-110">Especialidades</button>
               <Link to="/admin" className="px-5 py-2 rounded-full text-white font-semibold shadow-md transition-all bg-brand-dark hover:brightness-110">Portal Staff</Link>
             </nav>
           </div>
@@ -61,9 +61,9 @@ export function PublicLayout() {
           <div>
             <h4 className="font-semibold mb-4 text-slate-800">Enlaces Rápidos</h4>
             <ul className="space-y-3 text-sm text-slate-500">
-              <li><Link to="/" className="hover:text-brand-light">Inicio</Link></li>
-              <li><a href="#servicios" className="hover:text-brand-light">Servicios</a></li>
-              <li><a href="#nosotros" className="hover:text-brand-light">Quiénes Somos</a></li>
+              <li><Link to="/" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})} className="hover:text-brand-light">Inicio</Link></li>
+              <li><button onClick={() => document.getElementById('servicios')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-brand-light">Servicios</button></li>
+              <li><button onClick={() => document.getElementById('nosotros')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-brand-light">Quiénes Somos</button></li>
               <li><Link to="/admin" className="hover:text-brand-light">Portal Administrativo</Link></li>
             </ul>
           </div>
@@ -72,8 +72,8 @@ export function PublicLayout() {
             <h4 className="font-semibold mb-4 text-slate-800">Horarios</h4>
             <ul className="space-y-3 text-sm text-slate-500">
               <li>Lunes - Viernes: 8:00 AM - 9:00 PM</li>
-              <li>Sábado: 8:00 AM - 2:00 PM</li>
-              <li>Domingo: Cerrado</li>
+              <li>Sábado: Con Cita Previa</li>
+              <li>Domingo: Con Cita Previa</li>
             </ul>
           </div>
 

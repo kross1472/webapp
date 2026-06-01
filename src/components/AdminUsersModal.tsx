@@ -57,6 +57,7 @@ export function AdminUsersModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleDelete = async (id: string) => {
+    if (!window.confirm('¿Seguro de que deseas eliminar este usuario?')) return;
     try {
        await deleteDoc(doc(db, 'users', id));
        toast.success("Usuario eliminado");
@@ -103,7 +104,7 @@ export function AdminUsersModal({ onClose }: { onClose: () => void }) {
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-brand-light outline-none bg-white">
                   <option value="receptionist">Recepción</option>
                   <option value="physiotherapist">Fisioterapeuta</option>
-                  <option value="admin">Administrador</option>
+                  <option value="admin">Personal Administrativo</option>
                 </select>
               </div>
             </div>
@@ -124,7 +125,7 @@ export function AdminUsersModal({ onClose }: { onClose: () => void }) {
                     <p className="font-bold text-slate-800">{u.name || (u.email.split('@')[0])}</p>
                     <p className="text-sm text-slate-500 mb-1">{u.email}</p>
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-light/10 text-brand-dark uppercase">
-                      {u.role}
+                      {u.role === 'admin' ? 'Personal Administrativo' : u.role === 'physiotherapist' ? 'Fisioterapeuta' : u.role === 'receptionist' ? 'Recepcionista' : u.role}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
