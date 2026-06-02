@@ -34,8 +34,10 @@ export function AdminPatients() {
   const filteredPatients = patients.filter(p => {
     const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
     const phone = (p.phone || '').toLowerCase();
+    const email = (p.email || '').toLowerCase();
+    const id = (p.id || '').toLowerCase();
     const searchLow = searchTerm.toLowerCase();
-    return fullName.includes(searchLow) || phone.includes(searchLow);
+    return fullName.includes(searchLow) || phone.includes(searchLow) || email.includes(searchLow) || id.includes(searchLow);
   });
 
   const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
@@ -102,7 +104,7 @@ export function AdminPatients() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
-              placeholder="Buscar paciente..." 
+              placeholder="Buscar por nombre, teléfono o ID..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2 outline-none focus:border-brand-light transition-all shadow-sm"
@@ -164,6 +166,7 @@ export function AdminPatients() {
                   >
                     <td className="px-6 py-4">
                       <div className="font-bold text-slate-800 group-hover:text-brand-light transition-colors">{p.firstName} {p.lastName}</div>
+                      <div className="text-xs text-slate-400 font-mono mt-0.5">ID: {p.id}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-slate-600 font-medium">{p.phone || 'No registrado'}</div>

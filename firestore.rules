@@ -97,7 +97,7 @@ service cloud.firestore {
       
       // Public can create an appointment request. 
       allow create: if isValidId(appointmentId) && isValidAppointment(incoming()) && 
-                    incoming().status == 'pending';
+                    (incoming().status == 'pending' || isReceptionistOrHigher());
                     
       // Only staff can update status
       allow update: if isReceptionistOrHigher() && isValidAppointment(incoming());
@@ -129,6 +129,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     match /gallery/{imageId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /gallery_centro/{imageId} {
       allow read: if true;
       allow write: if isAdmin();
     }

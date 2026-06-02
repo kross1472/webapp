@@ -385,7 +385,7 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
 
       {selectedEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm print:static print:bg-white print:p-0 print:block">
-           <div id="print-modal" className="relative bg-white rounded-3xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col p-6 print:shadow-none print:w-full print:max-w-none print:m-0 print:p-16 print:border-transparent print:min-h-screen">
+           <div id="print-modal" className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col p-8 print:shadow-none print:w-full print:max-w-none print:m-0 print:p-16 print:border-transparent print:min-h-screen leading-relaxed text-slate-900">
               {/* Marca de agua sutil solo en impresión */}
               <div className="absolute inset-0 pointer-events-none hidden print:flex items-center justify-center z-0 overflow-hidden opacity-30">
                  <h1 className="text-[120px] font-display font-black -rotate-12 whitespace-nowrap text-slate-900/[0.02]">
@@ -396,7 +396,7 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
               <div className="relative z-10 flex justify-between items-start mb-6 print:mb-8 print:border-b print:border-slate-100 print:pb-4">
                  <div className="flex items-center gap-3">
                     <img src="/logo.jpeg" alt="Logo" className="h-8 w-auto hidden print:block" />
-                    <h3 className="text-lg print:text-2xl font-bold text-slate-800">
+                    <h3 className="text-lg print:text-2xl font-bold text-slate-900">
                        {selectedEvent.type === 'availability' ? 'Bloque de Disponibilidad' : 'Detalles de la Cita'}
                     </h3>
                  </div>
@@ -413,19 +413,23 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
               
               <div className="relative z-10">
               {selectedEvent.type === 'availability' ? (
-                <div className="space-y-4 print:grid print:grid-cols-2 print:gap-8 print:space-y-0">
-                   <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase">Fisioterapeuta</p>
-                      <p className="font-medium text-slate-800">{selectedEvent.physiotherapistName || 'Genérico'}</p>
-                   </div>
-                   <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase">Desde</p>
-                      <p className="font-medium text-slate-800">{format(new Date(selectedEvent.start), 'dd/MM/yyyy HH:mm')}</p>
-                   </div>
-                   <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase">Hasta</p>
-                      <p className="font-medium text-slate-800">{format(new Date(selectedEvent.end), 'dd/MM/yyyy HH:mm')}</p>
-                   </div>
+                <div className="space-y-4">
+                   <table className="w-full border-collapse mb-4 print:table">
+                      <tbody>
+                         <tr>
+                            <td className="border border-slate-200 p-3 bg-slate-50 w-1/3"><p className="text-xs font-bold text-slate-500 uppercase">Fisioterapeuta</p></td>
+                            <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.physiotherapistName || 'Genérico'}</p></td>
+                         </tr>
+                         <tr>
+                            <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Desde</p></td>
+                            <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{format(new Date(selectedEvent.start), 'dd/MM/yyyy HH:mm')}</p></td>
+                         </tr>
+                         <tr>
+                            <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Hasta</p></td>
+                            <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{format(new Date(selectedEvent.end), 'dd/MM/yyyy HH:mm')}</p></td>
+                         </tr>
+                      </tbody>
+                   </table>
                    <button 
                      onClick={async () => {
                         try {
@@ -443,45 +447,45 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
                 </div>
               ) : (
                 <>
-                  <div className="space-y-3 print:grid print:grid-cols-2 print:gap-8 print:space-y-0 print:items-start">
-                     <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase">Paciente</p>
-                        <p className="font-medium text-slate-800">{selectedEvent.patientName || 'Anónimo'}</p>
-                     </div>
-                     <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase">Servicio</p>
-                        <p className="font-medium text-slate-800">{selectedEvent.service || 'General'}</p>
-                     </div>
-                     {(selectedEvent.status === 'confirmed' || selectedEvent.status === 'completed') && selectedEvent.physiotherapistId && (
-                       <div>
-                          <p className="text-xs font-bold text-slate-400 uppercase">Fisioterapeuta Asignado</p>
-                          <p className="font-medium text-slate-800">
-                             {physiotherapists.find(p => p.id === selectedEvent.physiotherapistId)?.firstName || 
-                              physiotherapists.find(p => p.id === selectedEvent.physiotherapistId)?.name || 'Desconocido'}
-                          </p>
-                       </div>
-                     )}
-                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs font-bold text-slate-400 uppercase">Fecha</p>
-                          <p className="font-medium text-slate-800">{selectedEvent.date}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-400 uppercase">Hora</p>
-                          <p className="font-medium text-slate-800">{selectedEvent.time}</p>
-                        </div>
-                     </div>
-                     <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase">Estado</p>
-                        <span className={`inline-block mt-1 text-xs px-2.5 py-1.5 rounded-lg font-bold ${
-                           selectedEvent.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' :
-                           selectedEvent.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                           'bg-slate-100 text-slate-700'
-                        }`}>
-                          {selectedEvent.status === 'pending' ? 'Pendiente' : 
-                           selectedEvent.status === 'confirmed' ? 'Confirmada' : selectedEvent.status}
-                        </span>
-                     </div>
+                  <div className="space-y-3 print:items-start">
+                     <table className="w-full border-collapse mb-4 print:table">
+                        <tbody>
+                           <tr>
+                              <td className="border border-slate-200 p-3 bg-slate-50 w-1/3"><p className="text-xs font-bold text-slate-500 uppercase">Paciente</p></td>
+                              <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.patientName || 'Anónimo'}</p></td>
+                           </tr>
+                           <tr>
+                              <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Servicio</p></td>
+                              <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.service || 'General'}</p></td>
+                           </tr>
+                           {(selectedEvent.status === 'confirmed' || selectedEvent.status === 'completed') && selectedEvent.physiotherapistId && (
+                           <tr>
+                              <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Fisioterapeuta Asignado</p></td>
+                              <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">
+                                 {physiotherapists.find(p => p.id === selectedEvent.physiotherapistId)?.firstName || 
+                                  physiotherapists.find(p => p.id === selectedEvent.physiotherapistId)?.name || 'Desconocido'}
+                              </p></td>
+                           </tr>
+                           )}
+                           <tr>
+                              <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Fecha y Hora</p></td>
+                              <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.date} {selectedEvent.time}</p></td>
+                           </tr>
+                           <tr>
+                              <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Estado</p></td>
+                              <td className="border border-slate-200 p-3">
+                                 <span className={`inline-block mt-1 text-xs px-2.5 py-1.5 rounded-lg font-bold ${
+                                    selectedEvent.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' :
+                                    selectedEvent.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                    'bg-slate-100 text-slate-700'
+                                 }`}>
+                                   {selectedEvent.status === 'pending' ? 'Pendiente' : 
+                                    selectedEvent.status === 'confirmed' ? 'Confirmada' : selectedEvent.status}
+                                 </span>
+                              </td>
+                           </tr>
+                        </tbody>
+                     </table>
                   </div>
                   {selectedEvent.status === 'pending' && (
                      <div className="mt-6 border-t border-slate-100 pt-4 print:hidden">

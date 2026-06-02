@@ -1,5 +1,5 @@
 import { Button } from "../components/ui/Button";
-import { ArrowRight, CheckCircle2, Phone, Calendar as CalendarIcon, MessageCircle, Activity } from "lucide-react";
+import { ArrowRight, CheckCircle2, Phone, Calendar as CalendarIcon, MessageCircle, Activity, X } from "lucide-react";
 import { BookingForm } from "../components/BookingForm";
 import { useState, useEffect } from "react";
 import { collection, query, orderBy, getDocs } from "firebase/firestore";
@@ -10,6 +10,8 @@ import { motion } from "motion/react";
 export function Home() {
   const [promotions, setPromotions] = useState<any[]>([]);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [galleryCentroImages, setGalleryCentroImages] = useState<string[]>([]);
+  const [selectedPromo, setSelectedPromo] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -18,16 +20,19 @@ export function Home() {
         setPromotions(promosSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         
         const gallerySnap = await getDocs(query(collection(db, 'gallery'), orderBy('createdAt', 'desc')));
-        const images = gallerySnap.docs.map(d => (d.data() as any).data);
-        if (images.length > 0) {
-          setGalleryImages(images);
+        const imagesNosotros = gallerySnap.docs.map(d => (d.data() as any).data);
+        setGalleryImages(imagesNosotros); // we handle fallback during render or here
+        
+        const galleryCentroSnap = await getDocs(query(collection(db, 'gallery_centro'), orderBy('createdAt', 'desc')));
+        const imagesCentro = galleryCentroSnap.docs.map(d => (d.data() as any).data);
+        if (imagesCentro.length > 0) {
+          setGalleryCentroImages(imagesCentro);
         } else {
-          // Fallback if empty
-          setGalleryImages([
-            "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=600&q=80",
-            "https://images.unsplash.com/photo-1527613426496-22877f6b92a4?auto=format&fit=crop&w=600&q=80",
-            "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80",
-            "https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=600&q=80",
+          setGalleryCentroImages([
+            "/galeria/1.jpg.jpeg",
+            "/galeria/2.jpg.jpeg",
+            "/galeria/3.jpg.jpeg",
+            "/galeria/4.jpg.jpeg",
           ]);
         }
       } catch (e) {
@@ -82,7 +87,7 @@ export function Home() {
 
       {/* Promociones */}
       {promotions.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-[-3rem] relative z-20">
+        <section id="promociones" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-[-3rem] relative z-20 scroll-mt-24">
           <div className="bg-white rounded-3xl p-4 md:p-6 shadow-xl border border-brand-light/20 flex flex-col items-center">
             <h2 className="text-xl font-bold text-brand-dark mb-4 flex items-center gap-2">
               <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-md uppercase tracking-wider font-bold animate-pulse">Nuevo</span>
@@ -91,7 +96,7 @@ export function Home() {
             <div className="overflow-x-auto w-full pb-4 snap-x">
               <div className="flex gap-6 w-max mx-auto px-2">
                 {promotions.map((promo, i) => (
-                  <div key={promo.id || i} className="snap-center sm:w-[400px] w-[300px] aspect-[16/6] sm:aspect-video rounded-2xl overflow-hidden shadow-sm border border-slate-200 flex-shrink-0">
+                  <div key={promo.id || i} onClick={() => setSelectedPromo(promo.data)} className="snap-center sm:w-[400px] w-[300px] aspect-[16/6] sm:aspect-video rounded-2xl overflow-hidden shadow-sm border border-slate-200 flex-shrink-0 cursor-pointer">
                     <img src={promo.data} alt="Promoción" className="w-full h-full object-cover hover:scale-105 transition-transform" />
                   </div>
                 ))}
@@ -114,8 +119,8 @@ export function Home() {
             </p>
           </div>
           <div className="md:w-1/2 grid grid-cols-2 gap-4">
-            <img src={galleryImages[0] || "https://images.unsplash.com/photo-1588286840104-8957b019727f?auto=format&fit=crop&w=400&q=80"} alt="Terapia manual" className="rounded-2xl w-full h-48 object-cover shadow-sm bg-slate-100" />
-            <img src={galleryImages[1] || "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=400&q=80"} alt="Clínica" className="rounded-2xl w-full h-48 object-cover mt-8 shadow-sm bg-slate-100" />
+            <img src={galleryImages[0] || "/quienes-somos/1.jpg.jpeg"} alt="Terapia manual" className="rounded-2xl w-full h-48 object-cover shadow-sm bg-slate-100" />
+            <img src={galleryImages[1] || "/quienes-somos/2.jpg.jpeg"} alt="Clínica" className="rounded-2xl w-full h-48 object-cover mt-8 shadow-sm bg-slate-100" />
           </div>
         </div>
       </section>
@@ -146,7 +151,7 @@ export function Home() {
           <p className="text-slate-600 max-w-2xl mx-auto">Instalaciones de primer nivel y equipos de rehabilitación modernos para tu comodidad.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {galleryImages.map((src, idx) => (
+          {galleryCentroImages.map((src, idx) => (
              <motion.div
                key={idx}
                initial={{ opacity: 0, y: 20 }}
@@ -199,6 +204,18 @@ export function Home() {
           <BookingForm />
         </div>
       </section>
+
+      {/* Image Modal for Promotions */}
+      {selectedPromo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedPromo(null)}>
+          <div className="relative max-w-5xl w-full flex justify-center items-center">
+            <button onClick={() => setSelectedPromo(null)} className="absolute -top-12 right-0 text-white hover:text-red-400 transition-colors">
+              <X size={32} />
+            </button>
+            <img src={selectedPromo} alt="Promoción expandida" className="rounded-xl object-contain max-h-[85vh] w-auto shadow-2xl" onClick={e => e.stopPropagation()} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

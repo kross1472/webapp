@@ -3,6 +3,7 @@ import { db } from '../lib/firebase';
 import { collection, doc, writeBatch, query, where, getDocs, getCountFromServer } from 'firebase/firestore';
 import { Button } from '../components/ui/Button';
 import { toast } from 'sonner';
+import { useAuth } from '../lib/AuthContext';
 
 export function BookingForm() {
   const [date, setDate] = useState('');
@@ -11,11 +12,27 @@ export function BookingForm() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   
+  const { role } = useAuth();
+  const [physiotherapists, setPhysiotherapists] = useState<any[]>([]);
+  const [selectedPhysioId, setSelectedPhysioId] = useState('');
+  
   const [loading, setLoading] = useState(false);
   const [successId, setSuccessId] = useState('');
   const [unavailableHours, setUnavailableHours] = useState<string[]>([]);
 
   const availableHours = ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+
+  React.useEffect(() => {
+    if (role === 'admin' || role === 'receptionist') {
+      const fetchPhysios = async () => {
+        try {
+          const qSnap = await getDocs(query(collection(db, 'users')));
+          setPhysiotherapists(qSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((u: any) => u.role === 'physiotherapist'));
+        } catch (e) {}
+      };
+      fetchPhysios();
+    }
+  }, [role]);
 
   React.useEffect(() => {
     async function checkAvailability() {
@@ -79,14 +96,20 @@ export function BookingForm() {
       
       const batch = writeBatch(db);
       
-      batch.set(newDocRef, {
+      const appointmentData: any = {
         date,
         time,
         service, // Added here to make it easier to query
-        status: 'pending',
+        status: (role === 'admin' || role === 'receptionist') ? 'confirmed' : 'pending',
         createdAt: Date.now(),
         updatedAt: Date.now()
-      });
+      };
+
+      if ((role === 'admin' || role === 'receptionist') && selectedPhysioId) {
+        appointmentData.physiotherapistId = selectedPhysioId;
+      }
+
+      batch.set(newDocRef, appointmentData);
       
       const detailsRef = doc(db, 'appointments', newDocRef.id, 'details', 'info');
       batch.set(detailsRef, {
@@ -129,7 +152,7 @@ export function BookingForm() {
          <div className="mt-8">
            <Button variant="ghost" onClick={() => {
              setSuccessId('');
-             setDate(''); setTime(''); setName(''); setPhone('');
+             setDate(''); setTime(''); setName(''); setPhone(''); setSelectedPhysioId('');
            }}>Agendar otra cita</Button>
          </div>
       </div>
@@ -153,6 +176,21 @@ export function BookingForm() {
                <option>Crioterapia</option>
              </select>
            </div>
+           
+           {(role === 'admin' || role === 'receptionist') && (
+             <div>
+               <label className="block text-sm font-bold text-slate-700 mb-2">Fisioterapeuta Asignado (Opcional)</label>
+               <select 
+                 value={selectedPhysioId} onChange={(e) => setSelectedPhysioId(e.target.value)}
+                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light focus:ring-2 focus:ring-brand-light/20 transition-all font-medium text-slate-700"
+               >
+                 <option value="">Sin asignar (Cualquiera)</option>
+                 {physiotherapists.map(p => (
+                   <option key={p.id} value={p.id}>{p.firstName || p.name} {p.lastName || ''}</option>
+                 ))}
+               </select>
+             </div>
+           )}
            
            <div>
              <label className="block text-sm font-bold text-slate-700 mb-2">Fecha Preferida</label>

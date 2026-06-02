@@ -8,12 +8,14 @@ import { toast } from "sonner";
 import { useAuth } from "../lib/AuthContext";
 import { AdminUsersModal } from "../components/AdminUsersModal";
 import { AdminCalendarView } from "../components/AdminCalendarView";
+import { BookingForm } from "../components/BookingForm";
 
 export function AdminDashboard() {
   const navigate = useNavigate();
   const { role } = useAuth();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('calendar');
   const [searchQuery, setSearchQuery] = useState('');
   const [physiotherapists, setPhysiotherapists] = useState<any[]>([]);
@@ -230,7 +232,7 @@ export function AdminDashboard() {
                      >
                        <option value="">Sin asignar</option>
                        {physiotherapists.map(p => (
-                         <option key={p.id} value={p.id}>Fisio: {p.firstName} {p.lastName}</option>
+                         <option key={p.id} value={p.id}>Fisio: {p.firstName || p.name} {p.lastName || ''}</option>
                        ))}
                      </select>
                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
@@ -259,7 +261,7 @@ export function AdminDashboard() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col h-full">
            <h2 className="text-lg font-bold text-slate-800 mb-6">Acciones Rápidas</h2>
            <div className="space-y-3 flex-1 mb-8">
-              <button onClick={() => navigate('/')} className="w-full justify-start text-brand-dark bg-brand-light/10 hover:bg-brand-light/20 font-semibold px-4 py-3 rounded-xl transition-colors border border-brand-light/20 flex gap-3 items-center">
+              <button onClick={() => setIsBookingModalOpen(true)} className="w-full justify-start text-brand-dark bg-brand-light/10 hover:bg-brand-light/20 font-semibold px-4 py-3 rounded-xl transition-colors border border-brand-light/20 flex gap-3 items-center">
                  <CalendarIcon size={18} /> Nueva Cita
               </button>
               <button onClick={() => navigate('/admin/history/new')} className="w-full justify-start text-slate-700 bg-slate-50 hover:bg-slate-100 font-semibold px-4 py-3 rounded-xl transition-colors border border-slate-200 flex gap-3 items-center">
@@ -294,6 +296,16 @@ export function AdminDashboard() {
         </div>
       </div>
       {isUsersModalOpen && <AdminUsersModal onClose={() => setIsUsersModalOpen(false)} />}
+      {isBookingModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
+           <div className="relative w-full max-w-4xl my-8">
+             <button onClick={() => setIsBookingModalOpen(false)} className="absolute -top-4 -right-4 md:-right-12 md:top-0 bg-white text-slate-600 hover:text-slate-900 rounded-full p-2 shadow-lg transition-colors z-50">
+                <X size={24} />
+             </button>
+             <BookingForm />
+           </div>
+        </div>
+      )}
     </div>
   );
 }

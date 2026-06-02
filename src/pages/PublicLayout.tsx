@@ -34,6 +34,7 @@ export function PublicLayout() {
             </Link>
 
             <nav className="hidden md:flex gap-4 items-center">
+              <button onClick={() => document.getElementById('promociones')?.scrollIntoView({ behavior: 'smooth' })} className="px-5 py-2 rounded-full text-white font-semibold shadow-md transition-all bg-brand-dark hover:brightness-110">Promociones</button>
               <button onClick={() => document.getElementById('servicios')?.scrollIntoView({ behavior: 'smooth' })} className="px-5 py-2 rounded-full text-white font-semibold shadow-md transition-all bg-brand-dark hover:brightness-110">Servicios</button>
               <button onClick={() => document.getElementById('nosotros')?.scrollIntoView({ behavior: 'smooth' })} className="px-5 py-2 rounded-full text-white font-semibold shadow-md transition-all bg-brand-dark hover:brightness-110">Nosotros</button>
               <button onClick={() => document.getElementById('especialidades')?.scrollIntoView({ behavior: 'smooth' })} className="px-5 py-2 rounded-full text-white font-semibold shadow-md transition-all bg-brand-dark hover:brightness-110">Especialidades</button>
@@ -62,6 +63,7 @@ export function PublicLayout() {
             <h4 className="font-semibold mb-4 text-slate-800">Enlaces Rápidos</h4>
             <ul className="space-y-3 text-sm text-slate-500">
               <li><Link to="/" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})} className="hover:text-brand-light">Inicio</Link></li>
+              <li><button onClick={() => document.getElementById('promociones')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-brand-light">Promociones</button></li>
               <li><button onClick={() => document.getElementById('servicios')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-brand-light">Servicios</button></li>
               <li><button onClick={() => document.getElementById('nosotros')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-brand-light">Quiénes Somos</button></li>
               <li><Link to="/admin" className="hover:text-brand-light">Portal Administrativo</Link></li>
