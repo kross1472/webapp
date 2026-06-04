@@ -355,6 +355,8 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
         endAccessor="end"
         style={{ flex: 1 }}
         culture="es"
+        min={new Date(1970, 0, 1, 8, 0, 0)}
+        max={new Date(1970, 0, 1, 21, 0, 0)}
         messages={{
           next: 'Siguiente',
           previous: 'Anterior',
