@@ -23,10 +23,10 @@ export function BookingForm() {
   const availableHours = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
 
   React.useEffect(() => {
-    if (role === 'admin' || role === 'receptionist') {
+    if (role === 'admin' || role === 'receptionist' || role === 'physiotherapist') {
       const fetchPhysios = async () => {
         try {
-          const qSnap = await getDocs(query(collection(db, 'users')));
+          const qSnap = await getDocs(query(collection(db, 'staff_users')));
           setPhysiotherapists(qSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((u: any) => u.role === 'physiotherapist'));
         } catch (e) {}
       };
@@ -100,12 +100,12 @@ export function BookingForm() {
         date,
         time,
         service, // Added here to make it easier to query
-        status: (role === 'admin' || role === 'receptionist') ? 'confirmed' : 'pending',
+        status: (role === 'admin' || role === 'receptionist' || role === 'physiotherapist') ? 'confirmed' : 'pending',
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
 
-      if ((role === 'admin' || role === 'receptionist') && selectedPhysioId) {
+      if ((role === 'admin' || role === 'receptionist' || role === 'physiotherapist') && selectedPhysioId) {
         appointmentData.physiotherapistId = selectedPhysioId;
       }
 
@@ -177,7 +177,7 @@ export function BookingForm() {
              </select>
            </div>
            
-           {(role === 'admin' || role === 'receptionist') && (
+           {(role === 'admin' || role === 'receptionist' || role === 'physiotherapist') && (
              <div>
                <label className="block text-sm font-bold text-slate-700 mb-2">Fisioterapeuta Asignado (Opcional)</label>
                <select 
