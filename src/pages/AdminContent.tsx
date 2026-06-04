@@ -3,7 +3,7 @@ import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from 'fir
 import { db } from '../lib/firebase';
 import { useAuth } from '../lib/AuthContext';
 import { toast } from 'sonner';
-import { Image as ImageIcon, Plus, Trash2, Loader2, Upload } from 'lucide-react';
+import { Image as ImageIcon, Trash2, Loader2, Upload } from 'lucide-react';
 
 export function AdminContent() {
   const { role } = useAuth();
@@ -30,7 +30,7 @@ export function AdminContent() {
       setGalleryCentro(galleryCentroSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error(e);
-      toast.error('Error al cargar imágenes');
+      toast.error('Error al cargar datos');
     } finally {
       setLoading(false);
     }
@@ -102,7 +102,7 @@ export function AdminContent() {
   const handleDelete = async (id: string, type: 'promotions' | 'gallery' | 'gallery_centro') => {
     try {
       await deleteDoc(doc(db, type, id));
-      toast.success('Imagen eliminada');
+      toast.success('Eliminado correctamente');
       fetchData();
     } catch (e) {
       console.error(e);
@@ -209,7 +209,7 @@ export function AdminContent() {
               </div>
             ))}
           </div>
-        )}
+         )}
       </div>
     </div>
   );

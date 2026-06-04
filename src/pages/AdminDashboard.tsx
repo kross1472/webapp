@@ -6,7 +6,6 @@ import { db } from "../lib/firebase";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "../lib/AuthContext";
-import { AdminUsersModal } from "../components/AdminUsersModal";
 import { AdminCalendarView } from "../components/AdminCalendarView";
 import { BookingForm } from "../components/BookingForm";
 
@@ -14,7 +13,6 @@ export function AdminDashboard() {
   const navigate = useNavigate();
   const { role } = useAuth();
   const [appointments, setAppointments] = useState<any[]>([]);
-  const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('calendar');
   const [searchQuery, setSearchQuery] = useState('');
@@ -267,13 +265,6 @@ export function AdminDashboard() {
               <button onClick={() => navigate('/admin/history/new')} className="w-full justify-start text-slate-700 bg-slate-50 hover:bg-slate-100 font-semibold px-4 py-3 rounded-xl transition-colors border border-slate-200 flex gap-3 items-center">
                  <FileText size={18} /> Crear Historia Clínica
               </button>
-              {role === 'admin' && (
-                <>
-                  <button onClick={() => setIsUsersModalOpen(true)} className="w-full justify-start text-slate-700 bg-slate-50 hover:bg-slate-100 font-semibold px-4 py-3 rounded-xl transition-colors border border-slate-200 flex gap-3 items-center">
-                     <UserPlus size={18} /> Gestionar Staff
-                  </button>
-                </>
-              )}
            </div>
            
            <div className="pt-6 border-t border-slate-100">
@@ -295,7 +286,6 @@ export function AdminDashboard() {
            </div>
         </div>
       </div>
-      {isUsersModalOpen && <AdminUsersModal onClose={() => setIsUsersModalOpen(false)} />}
       {isBookingModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
            <div className="relative w-full max-w-4xl my-8">

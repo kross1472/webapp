@@ -11,15 +11,16 @@ import { AdminDashboard } from "./pages/AdminDashboard";
 import { AdminClinicalHistory } from "./pages/AdminClinicalHistory";
 import { AdminPatients } from "./pages/AdminPatients";
 import { AdminContent } from "./pages/AdminContent";
+import { AdminStaff } from "./pages/AdminStaff";
 import { Toaster } from 'sonner';
 
 import { AuthProvider } from './lib/AuthContext';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Toaster position="top-right" richColors />
-      <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
+        <Toaster position="top-right" richColors />
         <Routes>
           <Route path="/" element={<PublicLayout />}>
             <Route index element={<Home />} />
@@ -30,9 +31,10 @@ export default function App() {
             <Route path="patients" element={<AdminPatients />} />
             <Route path="history/new" element={<AdminClinicalHistory />} />
             <Route path="content" element={<AdminContent />} />
+            <Route path="staff" element={<AdminStaff />} />
           </Route>
         </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }

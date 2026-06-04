@@ -1,0 +1,228 @@
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs, deleteDoc, doc, query, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { useAuth } from '../lib/AuthContext';
+import { toast } from 'sonner';
+import { Trash2, Loader2, Upload, Users, UserPlus, Pencil, X } from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import firebaseConfig from '../../firebase-applet-config.json';
+
+export function AdminStaff() {
+  const { role } = useAuth();
+  const [staffUsers, setStaffUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Staff form state
+  const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffUsername, setNewStaffUsername] = useState('');
+  const [newStaffEmail, setNewStaffEmail] = useState('');
+  const [newStaffPassword, setNewStaffPassword] = useState('');
+  const [newStaffRole, setNewStaffRole] = useState<'physiotherapist' | 'receptionist' | 'admin'>('physiotherapist');
+  const [creatingStaff, setCreatingStaff] = useState(false);
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+
+  if (role !== 'admin') {
+    return <div className="p-8"><p className="text-red-500 font-bold">Acceso denegado. Solo administradores pueden ver esta página.</p></div>;
+  }
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const staffSnap = await getDocs(query(collection(db, 'staff_users')));
+      setStaffUsers(staffSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) {
+      console.error(e);
+      toast.error('Error al cargar datos de staff');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleDelete = async (id: string, type: 'staff_users') => {
+    try {
+      await deleteDoc(doc(db, type, id));
+      toast.success('Eliminado correctamente');
+      fetchData();
+    } catch (e) {
+      console.error(e);
+      toast.error('Error al eliminar');
+    }
+  };
+
+  const handleSaveStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStaffName || !newStaffUsername || !newStaffPassword) {
+       toast.error("Por favor completa los campos obligatorios (Nombre, Usuario y Contraseña)");
+       return;
+    }
+    
+    if (newStaffPassword.length < 6) {
+       toast.error("La contraseña debe tener al menos 6 caracteres");
+       return;
+    }
+    
+    try {
+       setCreatingStaff(true);
+       
+       let uidOrDocId = editingStaffId || newStaffUsername.toLowerCase();
+       const firebaseEmail = newStaffEmail ? newStaffEmail.toLowerCase() : `${newStaffUsername.toLowerCase()}@prophysical.com`;
+       
+       if (!editingStaffId) {
+          // Intentar crear la cuenta en Firebase Auth
+          try {
+              const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp" + Date.now());
+              const secondaryAuth = getAuth(secondaryApp);
+              const cred = await createUserWithEmailAndPassword(secondaryAuth, firebaseEmail, newStaffPassword);
+              await secondaryAuth.signOut();
+              uidOrDocId = cred.user.uid;
+          } catch (authError) {
+              console.warn("No se pudo crear en Firebase Auth, procediendo con login local:", authError);
+          }
+       }
+       
+       await setDoc(doc(db, 'staff_users', uidOrDocId), {
+          name: newStaffName,
+          username: newStaffUsername.toLowerCase(),
+          email: newStaffEmail.toLowerCase(),
+          password: newStaffPassword, // Guardar localmente para fallback
+          role: newStaffRole,
+          ...(editingStaffId ? { updatedAt: Date.now() } : { createdAt: Date.now() })
+       }, { merge: true });
+       
+       toast.success(editingStaffId ? "Usuario actualizado exitosamente" : "Usuario de personal creado exitosamente");
+       cancelEditStaff();
+       fetchData();
+    } catch (err: any) {
+       console.error("Error saving staff", err);
+       toast.error(err.message || "Error al guardar usuario de personal");
+    } finally {
+       setCreatingStaff(false);
+    }
+  };
+
+  const startEditStaff = (user: any) => {
+    setEditingStaffId(user.id);
+    setNewStaffName(user.name || '');
+    setNewStaffUsername(user.username || '');
+    setNewStaffEmail(user.email || '');
+    setNewStaffPassword(user.password || '');
+    setNewStaffRole(user.role || 'physiotherapist');
+    
+    const staffSectionProps = document.getElementById('staff-section');
+    if (staffSectionProps) {
+       staffSectionProps.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const cancelEditStaff = () => {
+    setEditingStaffId(null);
+    setNewStaffName('');
+    setNewStaffUsername('');
+    setNewStaffEmail('');
+    setNewStaffPassword('');
+    setNewStaffRole('physiotherapist');
+  };
+
+  if (loading) {
+    return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-brand-light" size={32} /></div>;
+  }
+
+  return (
+    <div className="max-w-5xl">
+      <div id="staff-section" className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Users className="text-purple-500" size={24}/> Personal (Fisioterapeutas / Recepcionistas)</h2>
+            <p className="text-sm text-slate-500 mt-1">Crea y administra usuarios para que puedan iniciar sesión en el panel administrativo.</p>
+          </div>
+        </div>
+        
+        <form onSubmit={handleSaveStaff} className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-8 grid md:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
+           <div className="lg:col-span-3">
+              <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase">Nombre Completo</label>
+              <input type="text" value={newStaffName} onChange={e => setNewStaffName(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:ring-brand-light focus:border-brand-light" placeholder="Ej. Juan Pérez" />
+           </div>
+           <div className="lg:col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase">Usuario (Alias)</label>
+              <input type="text" value={newStaffUsername} onChange={e => setNewStaffUsername(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:ring-brand-light focus:border-brand-light" placeholder="juan.perez" readOnly={!!editingStaffId} title={editingStaffId ? "No se puede cambiar el usuario editando" : ""} />
+           </div>
+           <div className="lg:col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase">Email</label>
+              <input type="email" value={newStaffEmail} onChange={e => setNewStaffEmail(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:ring-brand-light focus:border-brand-light" placeholder="juan@prophysical.com" />
+           </div>
+           <div className="lg:col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase">Contraseña</label>
+              <input type="password" value={newStaffPassword} onChange={e => setNewStaffPassword(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 focus:ring-brand-light focus:border-brand-light" placeholder="••••••••" />
+           </div>
+           <div className="lg:col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase">Rol</label>
+              <select value={newStaffRole} onChange={e => setNewStaffRole(e.target.value as any)} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-brand-light focus:border-brand-light text-slate-700">
+                 <option value="physiotherapist">Fisioterapeuta</option>
+                 <option value="receptionist">Recepcionista</option>
+                 <option value="admin">Admin</option>
+              </select>
+           </div>
+           <div className="lg:col-span-1 flex gap-2 w-full h-[42px]">
+              <button disabled={creatingStaff} className="w-full bg-purple-600 text-white rounded-lg px-2 font-medium hover:bg-purple-700 transition flex justify-center items-center gap-1 disabled:opacity-50">
+                {creatingStaff ? <Loader2 size={16} className="animate-spin" /> : (editingStaffId ? <Upload size={16} /> : <UserPlus size={16} />)}
+              </button>
+              {editingStaffId && (
+                 <button type="button" onClick={cancelEditStaff} className="w-full bg-slate-200 text-slate-700 rounded-lg px-2 font-medium hover:bg-slate-300 transition flex justify-center items-center">
+                    <X size={16} />
+                 </button>
+              )}
+           </div>
+        </form>
+
+        {staffUsers.length === 0 ? (
+          <div className="text-center py-12 text-slate-500 border-2 border-dashed border-slate-200 rounded-xl">No hay personal registrado</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+               <thead>
+                  <tr className="border-b border-slate-200">
+                     <th className="py-3 font-semibold text-slate-600 text-sm">Nombre</th>
+                     <th className="py-3 font-semibold text-slate-600 text-sm">Usuario (Alias)</th>
+                     <th className="py-3 font-semibold text-slate-600 text-sm">Email</th>
+                     <th className="py-3 font-semibold text-slate-600 text-sm">Contraseña</th>
+                     <th className="py-3 font-semibold text-slate-600 text-sm">Rol</th>
+                     <th className="py-3 text-right font-semibold text-slate-600 text-sm">Acciones</th>
+                  </tr>
+               </thead>
+               <tbody>
+                  {staffUsers.map(user => (
+                     <tr key={user.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                        <td className="py-3 whitespace-nowrap text-slate-800 font-medium">{user.name}</td>
+                        <td className="py-3 whitespace-nowrap text-slate-600 font-semibold">{user.username}</td>
+                        <td className="py-3 whitespace-nowrap text-slate-500">{user.email || '-'}</td>
+                        <td className="py-3 whitespace-nowrap text-slate-400 font-mono text-xs">( Oculta )</td>
+                        <td className="py-3 whitespace-nowrap">
+                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : user.role === 'physiotherapist' ? 'bg-cyan-100 text-cyan-800' : 'bg-orange-100 text-orange-800'}`}>
+                             {user.role}
+                           </span>
+                        </td>
+                        <td className="py-3 text-right">
+                           <div className="flex justify-end gap-2">
+                             <button onClick={() => startEditStaff(user)} className="text-slate-500 hover:text-white hover:bg-purple-500 p-2 rounded-lg transition-colors">
+                                <Pencil size={18} />
+                             </button>
+                             <button onClick={() => handleDelete(user.id, 'staff_users')} className="text-red-500 hover:text-white hover:bg-red-500 p-2 rounded-lg transition-colors">
+                                <Trash2 size={18} />
+                             </button>
+                           </div>
+                        </td>
+                     </tr>
+                  ))}
+               </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

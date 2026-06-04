@@ -124,6 +124,11 @@ service cloud.firestore {
       allow write: if isStaff();
     }
     
+    match /staff_users/{userId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /promotions/{promoId} {
       allow read: if true;
       allow write: if isAdmin();
