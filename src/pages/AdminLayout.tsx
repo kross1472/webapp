@@ -38,6 +38,23 @@ export function AdminLayout() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setLoginError("");
+    try {
+      await signInWithGoogle();
+    } catch (e: any) {
+      if (e.code === 'auth/cancelled-popup-request' || e.code === 'auth/popup-closed-by-user') {
+        setLoginError("La ventana de Google fue bloqueada o cancelada. Si estás en la vista previa, necesitas abrir la app en una nueva pestaña (icono arriba a la derecha).");
+        return;
+      }
+      if (e.code === 'auth/operation-not-allowed') {
+        setLoginError("El inicio de sesión con Google NO está habilitado. Por favor actívalo en la consola de Firebase > Authentication > Sign-in method.");
+        return;
+      }
+      setLoginError(e.message || "Error al iniciar sesión con Google.");
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
@@ -45,10 +62,10 @@ export function AdminLayout() {
     try {
       await signInWithCredentials(username, password);
     } catch (e: any) {
-      if (e.message === 'operation-not-allowed') {
-         setLoginError("El inicio de sesión por correo/contraseña está desactivado. Para habilitarlo, ve a la consola de Firebase Authentication. Como alternativa, por favor ingresa con tu cuenta de Google.");
+      if (e.message.includes('NOT está habilitada') || e.message.includes('NO está habilitada') || e.message.includes('operation-not-allowed') || e.message.includes('Error:')) {
+         setLoginError(e.message.replace('Error: ', ''));
       } else {
-         setLoginError("Credenciales inválidas o error de autenticación.");
+         setLoginError(e.message || "Credenciales inválidas o error de autenticación.");
       }
     } finally {
       setIsLoggingIn(false);
@@ -129,7 +146,7 @@ export function AdminLayout() {
                  </div>
                </div>
 
-               <Button type="button" variant="ghost" onClick={signInWithGoogle} className="w-full gap-2 text-md h-12 shadow-sm border border-slate-200">
+               <Button type="button" variant="ghost" onClick={handleGoogleLogin} className="w-full gap-2 text-md h-12 shadow-sm border border-slate-200">
                  <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4 mr-1 opacity-70" />
                  Ingresar con Google
                </Button>

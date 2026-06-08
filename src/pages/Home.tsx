@@ -71,7 +71,7 @@ export function Home() {
               Recupera tu <span className="text-brand-light">movilidad</span>, bienestar y calidad de vida.
             </h1>
             <p className="text-lg md:text-xl text-slate-600 mb-10 font-medium max-w-xl leading-relaxed">
-              Especialistas en fisioterapia y rehabilitación integral para niños, adultos y adultos mayores con tecnología terapéutica de vanguardia.
+              Especialistas en fisioterapia y rehabilitación integral para niños, jóvenes, adultos y adultos mayores con tecnología terapéutica de vanguardia.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Button size="lg" className="gap-2 px-8 py-4 rounded-xl font-bold text-lg shadow-lg hover:brightness-110 border-0" onClick={() => document.getElementById('agendar-cita')?.scrollIntoView({ behavior: 'smooth' })}>

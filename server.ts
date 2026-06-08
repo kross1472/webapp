@@ -11,7 +11,7 @@ async function startServer() {
   // Basic security with helmet (configured to work well with Vite in dev)
   app.use(
     helmet({
-      contentSecurityPolicy: false, // Vite uses inline scripts, so we don't enforce strict CSP in helmet for the server yet or let index.html handle it.
+      contentSecurityPolicy: process.env.NODE_ENV === 'production' ? true : false,
       crossOriginEmbedderPolicy: false
     })
   );
@@ -28,8 +28,8 @@ async function startServer() {
 
   // Implement CORS restrictivo para las rutas API
   const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-      ? ['https://tu-dominio-produccion.com', 'https://*.run.app'] // Ajusta a tus dominios en producción
+    origin: process.env.NODE_ENV === 'production'
+      ? [/\.run\.app$/] // Allow Cloud Run domains dynamically
       : '*', // Permisivo en desarrollo
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']

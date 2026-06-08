@@ -12,6 +12,7 @@ export function AdminStaff() {
   const { role } = useAuth();
   const [staffUsers, setStaffUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // Staff form state
   const [newStaffName, setNewStaffName] = useState('');
@@ -29,11 +30,16 @@ export function AdminStaff() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const staffSnap = await getDocs(query(collection(db, 'staff_users')));
       setStaffUsers(staffSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) {
-      console.error(e);
-      toast.error('Error al cargar datos de staff');
+    } catch (e: any) {
+      console.warn("Firestore Error in AdminStaff fetchData:", e);
+      if (e.code === 'permission-denied' || e.message?.includes('Missing or insufficient permissions') || e.message?.includes('permis')) {
+          setError('No tienes permisos suficientes para ver los datos del personal. Por favor contacta al administrador principal.');
+      } else {
+          setError('Error de conexión al cargar los datos. ' + (e.message || ''));
+      }
     } finally {
       setLoading(false);
     }
@@ -73,15 +79,23 @@ export function AdminStaff() {
        const firebaseEmail = newStaffEmail ? newStaffEmail.toLowerCase() : `${newStaffUsername.toLowerCase()}@prophysical.com`;
        
        if (!editingStaffId) {
-          // Intentar crear la cuenta en Firebase Auth
+          // Crear la cuenta en Firebase Auth
+          // Use the built-in REST API to avoid secondaryApp state issues or use secondary app correctly
           try {
               const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp" + Date.now());
               const secondaryAuth = getAuth(secondaryApp);
               const cred = await createUserWithEmailAndPassword(secondaryAuth, firebaseEmail, newStaffPassword);
               await secondaryAuth.signOut();
               uidOrDocId = cred.user.uid;
-          } catch (authError) {
-              console.warn("No se pudo crear en Firebase Auth, procediendo con login local:", authError);
+          } catch (authError: any) {
+              if (authError.code === 'auth/operation-not-allowed') {
+                  // Bypass because auth isn't enabled. Just use username as ID!
+                  uidOrDocId = newStaffUsername.toLowerCase();
+                  toast.warning("Modo local: El usuario se guardó solo en DB (Auth deshabilitado en consola).");
+              } else {
+                  console.error("Error creating in Firebase Auth:", authError);
+                  throw new Error("No se pudo registrar el usuario en el sistema de autenticación. Error: " + authError.message);
+              }
           }
        }
        
@@ -179,7 +193,11 @@ export function AdminStaff() {
            </div>
         </form>
 
-        {staffUsers.length === 0 ? (
+        {error ? (
+          <div className="text-center py-12 text-red-500 border-2 border-dashed border-red-200 rounded-xl bg-red-50 font-medium px-4">
+             {error}
+          </div>
+        ) : staffUsers.length === 0 ? (
           <div className="text-center py-12 text-slate-500 border-2 border-dashed border-slate-200 rounded-xl">No hay personal registrado</div>
         ) : (
           <div className="overflow-x-auto">

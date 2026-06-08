@@ -26,8 +26,16 @@ export function BookingForm() {
     if (role === 'admin' || role === 'receptionist' || role === 'physiotherapist') {
       const fetchPhysios = async () => {
         try {
-          const qSnap = await getDocs(query(collection(db, 'staff_users')));
-          setPhysiotherapists(qSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((u: any) => u.role === 'physiotherapist'));
+          const qSnap1 = await getDocs(query(collection(db, 'staff_users')));
+          const qSnap2 = await getDocs(query(collection(db, 'users')));
+          
+          const users1 = qSnap1.docs.map(d => ({ id: d.id, ...d.data() }));
+          const users2 = qSnap2.docs.map(d => ({ id: d.id, ...d.data() }));
+          
+          const allUsers = [...users1, ...users2];
+          const uniqueUsers = Array.from(new Map(allUsers.map(item => [item.id, item])).values());
+          
+          setPhysiotherapists(uniqueUsers.filter((u: any) => u.role === 'physiotherapist'));
         } catch (e) {}
       };
       fetchPhysios();

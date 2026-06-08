@@ -27,6 +27,9 @@ export function AdminPatients() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setPatients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching patients:", error);
+      setLoading(false);
     });
     return unsubscribe;
   }, []);

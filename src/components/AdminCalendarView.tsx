@@ -74,11 +74,18 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
   useEffect(() => {
     const fetchPhysios = async () => {
       try {
-        const q = query(collection(db, 'users'), where('role', '==', 'physiotherapist'));
-        const snap = await getDocs(q);
-        setPhysiotherapists(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const qSnap1 = await getDocs(query(collection(db, 'staff_users'), where('role', '==', 'physiotherapist')));
+        const qSnap2 = await getDocs(query(collection(db, 'users'), where('role', '==', 'physiotherapist')));
+        const users1 = qSnap1.docs.map(d => ({ id: d.id, ...d.data() }));
+        const users2 = qSnap2.docs.map(d => ({ id: d.id, ...d.data() }));
+        
+        // Remove duplicates by ID in case they exist in both
+        const allPhysios = [...users1, ...users2];
+        const uniquePhysios = Array.from(new Map(allPhysios.map(item => [item.id, item])).values());
+        
+        setPhysiotherapists(uniquePhysios);
       } catch (error) {
-        console.error("Error fetching physiotherapists", error);
+        console.warn("Error fetching physiotherapists", error);
       }
     };
     fetchPhysios();
@@ -455,6 +462,10 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
                            <tr>
                               <td className="border border-slate-200 p-3 bg-slate-50 w-1/3"><p className="text-xs font-bold text-slate-500 uppercase">Paciente</p></td>
                               <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.patientName || 'Anónimo'}</p></td>
+                           </tr>
+                           <tr>
+                              <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Teléfono</p></td>
+                              <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.patientPhone || 'No registrado'}</p></td>
                            </tr>
                            <tr>
                               <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Servicio</p></td>
