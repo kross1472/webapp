@@ -1,8 +1,121 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Default deny catch-all
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+    
+    // Global helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isStaff() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'physiotherapist' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'receptionist'
+        ))
+      );
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) && get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.role == 'admin') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+    
+    function isPhysio() {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) && get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.role == 'physiotherapist') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'physiotherapist')
+      );
+    }
+    
+    function isReceptionist() {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) && get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.role == 'receptionist') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'receptionist')
+      );
+    }
+
+    function isStaffMigration(userId) {
+      return isSignedIn() &&
+        userId == request.auth.uid &&
+        request.resource.data != null &&
+        request.resource.data.username != null &&
+        exists(/databases/$(database)/documents/staff_users/$(request.resource.data.username)) &&
+        request.auth.token.email.matches('(?i)^' + get(/databases/$(database)/documents/staff_users/$(request.resource.data.username)).data.email + '$') &&
+        request.resource.data.role == get(/databases/$(database)/documents/staff_users/$(request.resource.data.username)).data.role;
+    }
+    
+    // 1. Staff Profiles & Credentials
+    match /staff_users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || (isSignedIn() && userId == request.auth.uid && isStaffMigration(userId));
+    }
+    
+    // 2. Base Users Details
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+    }
+    
+    // 3. Patients Records
+    match /patients/{patientId} {
+      // All clinic staff can view patient directory/demographics
+      allow read, write: if isStaff();
+      
+      // Clinical histories are highly personal: restricted to medical personnel
+      match /clinical_histories/{historyId} {
+        allow read, write: if isAdmin() || isPhysio();
+      }
+    }
+    
+    // 4. Appointments Scheduler
+    match /appointments/{appointmentId} {
+      // Anyone can see available times and request booking
+      allow read, create: if true;
+      // Modifying or canceling appointments requires staff permission
+      allow update, delete: if isStaff();
+      
+      match /details/{detailId} {
+        // Anyone can create booking details during request creation
+        allow create: if true;
+        // Only staff can read, update, or delete appointment details
+        allow read, update, delete: if isStaff();
+      }
+    }
+    
+    // 5. Marketing, Assets, and Configuration collections
+    match /promotions/{docId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+    
+    match /gallery/{docId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+    
+    match /gallery_centro/{docId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+    
+    match /availability/{docId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+    
+    match /mail/{docId} {
+      allow create: if true;
+      allow read, update, delete: if isStaff();
     }
   }
 }
