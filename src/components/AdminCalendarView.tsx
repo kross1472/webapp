@@ -74,14 +74,15 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
   useEffect(() => {
     const fetchPhysios = async () => {
       try {
-        const qSnap1 = await getDocs(query(collection(db, 'staff_users'), where('role', '==', 'physiotherapist')));
-        const qSnap2 = await getDocs(query(collection(db, 'users'), where('role', '==', 'physiotherapist')));
+        const qSnap1 = await getDocs(query(collection(db, 'staff_users')));
+        const qSnap2 = await getDocs(query(collection(db, 'users')));
         const users1 = qSnap1.docs.map(d => ({ id: d.id, ...d.data() }));
         const users2 = qSnap2.docs.map(d => ({ id: d.id, ...d.data() }));
         
         // Remove duplicates by ID in case they exist in both
         const allPhysios = [...users1, ...users2];
-        const uniquePhysios = Array.from(new Map(allPhysios.map(item => [item.id, item])).values());
+        const uniquePhysios = Array.from(new Map(allPhysios.map(item => [item.id, item])).values())
+          .filter((u: any) => u.role === 'physiotherapist' || (u.role === 'admin' && u.isPhysiotherapist === true));
         
         setPhysiotherapists(uniquePhysios);
       } catch (error) {

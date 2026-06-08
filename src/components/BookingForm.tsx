@@ -35,7 +35,7 @@ export function BookingForm() {
           const allUsers = [...users1, ...users2];
           const uniqueUsers = Array.from(new Map(allUsers.map(item => [item.id, item])).values());
           
-          setPhysiotherapists(uniqueUsers.filter((u: any) => u.role === 'physiotherapist'));
+          setPhysiotherapists(uniqueUsers.filter((u: any) => u.role === 'physiotherapist' || (u.role === 'admin' && u.isPhysiotherapist === true)));
         } catch (e) {}
       };
       fetchPhysios();

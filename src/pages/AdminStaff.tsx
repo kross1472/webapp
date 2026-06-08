@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, deleteDoc, doc, query, setDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, firebaseConfig } from '../lib/firebase';
 import { useAuth } from '../lib/AuthContext';
 import { toast } from 'sonner';
 import { Trash2, Loader2, Upload, Users, UserPlus, Pencil, X } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
 
 export function AdminStaff() {
   const { role } = useAuth();
@@ -20,6 +19,7 @@ export function AdminStaff() {
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPassword, setNewStaffPassword] = useState('');
   const [newStaffRole, setNewStaffRole] = useState<'physiotherapist' | 'receptionist' | 'admin'>('physiotherapist');
+  const [newStaffIsPhysio, setNewStaffIsPhysio] = useState(false);
   const [creatingStaff, setCreatingStaff] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
 
@@ -62,12 +62,19 @@ export function AdminStaff() {
 
   const handleSaveStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newStaffName || !newStaffUsername || !newStaffPassword) {
-       toast.error("Por favor completa los campos obligatorios (Nombre, Usuario y Contraseña)");
+    const isEdit = !!editingStaffId;
+
+    if (!newStaffName || !newStaffUsername) {
+       toast.error("Por favor completa los campos obligatorios (Nombre y Usuario)");
+       return;
+    }
+
+    if (!isEdit && !newStaffPassword) {
+       toast.error("La contraseña es obligatoria para nuevos usuarios");
        return;
     }
     
-    if (newStaffPassword.length < 6) {
+    if (newStaffPassword && newStaffPassword.length < 6) {
        toast.error("La contraseña debe tener al menos 6 caracteres");
        return;
     }
@@ -78,7 +85,7 @@ export function AdminStaff() {
        let uidOrDocId = editingStaffId || newStaffUsername.toLowerCase();
        const firebaseEmail = newStaffEmail ? newStaffEmail.toLowerCase() : `${newStaffUsername.toLowerCase()}@prophysical.com`;
        
-       if (!editingStaffId) {
+       if (!isEdit) {
           // Crear la cuenta en Firebase Auth
           // Use the built-in REST API to avoid secondaryApp state issues or use secondary app correctly
           try {
@@ -103,8 +110,8 @@ export function AdminStaff() {
           name: newStaffName,
           username: newStaffUsername.toLowerCase(),
           email: newStaffEmail.toLowerCase(),
-          password: newStaffPassword, // Guardar localmente para fallback
           role: newStaffRole,
+          isPhysiotherapist: newStaffRole === 'admin' ? newStaffIsPhysio : false,
           ...(editingStaffId ? { updatedAt: Date.now() } : { createdAt: Date.now() })
        }, { merge: true });
        
@@ -124,8 +131,9 @@ export function AdminStaff() {
     setNewStaffName(user.name || '');
     setNewStaffUsername(user.username || '');
     setNewStaffEmail(user.email || '');
-    setNewStaffPassword(user.password || '');
+    setNewStaffPassword('');
     setNewStaffRole(user.role || 'physiotherapist');
+    setNewStaffIsPhysio(user.isPhysiotherapist || false);
     
     const staffSectionProps = document.getElementById('staff-section');
     if (staffSectionProps) {
@@ -140,6 +148,7 @@ export function AdminStaff() {
     setNewStaffEmail('');
     setNewStaffPassword('');
     setNewStaffRole('physiotherapist');
+    setNewStaffIsPhysio(false);
   };
 
   if (loading) {
@@ -175,11 +184,21 @@ export function AdminStaff() {
            </div>
            <div className="lg:col-span-2">
               <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase">Rol</label>
-              <select value={newStaffRole} onChange={e => setNewStaffRole(e.target.value as any)} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-brand-light focus:border-brand-light text-slate-700">
+              <select value={newStaffRole} onChange={e => {
+                 const r = e.target.value as any;
+                 setNewStaffRole(r);
+                 if (r !== 'admin') setNewStaffIsPhysio(false);
+              }} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-brand-light focus:border-brand-light text-slate-700">
                  <option value="physiotherapist">Fisioterapeuta</option>
                  <option value="receptionist">Recepcionista</option>
                  <option value="admin">Admin</option>
               </select>
+              {newStaffRole === 'admin' && (
+                 <div className="mt-2 flex items-center gap-1.5 bg-purple-50 p-1.5 rounded border border-purple-100">
+                    <input type="checkbox" id="also-physio" checked={newStaffIsPhysio} onChange={e => setNewStaffIsPhysio(e.target.checked)} className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 h-3.5 w-3.5 cursor-pointer" />
+                    <label htmlFor="also-physio" className="text-[10px] font-bold text-purple-700 cursor-pointer select-none uppercase">¿También Fisioterapeuta?</label>
+                 </div>
+              )}
            </div>
            <div className="lg:col-span-1 flex gap-2 w-full h-[42px]">
               <button disabled={creatingStaff} className="w-full bg-purple-600 text-white rounded-lg px-2 font-medium hover:bg-purple-700 transition flex justify-center items-center gap-1 disabled:opacity-50">
@@ -207,7 +226,7 @@ export function AdminStaff() {
                      <th className="py-3 font-semibold text-slate-600 text-sm">Nombre</th>
                      <th className="py-3 font-semibold text-slate-600 text-sm">Usuario (Alias)</th>
                      <th className="py-3 font-semibold text-slate-600 text-sm">Email</th>
-                     <th className="py-3 font-semibold text-slate-600 text-sm">Contraseña</th>
+
                      <th className="py-3 font-semibold text-slate-600 text-sm">Rol</th>
                      <th className="py-3 text-right font-semibold text-slate-600 text-sm">Acciones</th>
                   </tr>
@@ -218,11 +237,18 @@ export function AdminStaff() {
                         <td className="py-3 whitespace-nowrap text-slate-800 font-medium">{user.name}</td>
                         <td className="py-3 whitespace-nowrap text-slate-600 font-semibold">{user.username}</td>
                         <td className="py-3 whitespace-nowrap text-slate-500">{user.email || '-'}</td>
-                        <td className="py-3 whitespace-nowrap text-slate-400 font-mono text-xs">( Oculta )</td>
+
                         <td className="py-3 whitespace-nowrap">
-                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : user.role === 'physiotherapist' ? 'bg-cyan-100 text-cyan-800' : 'bg-orange-100 text-orange-800'}`}>
-                             {user.role}
-                           </span>
+                           <div className="flex flex-col gap-1 items-start">
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : user.role === 'physiotherapist' ? 'bg-cyan-100 text-cyan-800' : 'bg-orange-100 text-orange-800'}`}>
+                                {user.role}
+                              </span>
+                              {user.role === 'admin' && user.isPhysiotherapist && (
+                                 <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-cyan-100 text-cyan-800 border border-cyan-200 uppercase">
+                                   + Fisioterapeuta
+                                 </span>
+                              )}
+                           </div>
                         </td>
                         <td className="py-3 text-right">
                            <div className="flex justify-end gap-2">

@@ -1,10 +1,9 @@
 {
-  "projectId": "elegant-coral-3v7sv",
-  "appId": "1:812241769524:web:fc34ec233b266eca12a661",
-  "apiKey": "AIzaSyB_gDg-VGvSR_bTeDnq6Nt5P4FXQcykN_U",
-  "authDomain": "elegant-coral-3v7sv.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-4f8b9def-d8ac-403e-a6eb-b5a1ae32aaea",
-  "storageBucket": "elegant-coral-3v7sv.firebasestorage.app",
-  "messagingSenderId": "812241769524",
-  "measurementId": ""
+  "apiKey": "AIzaSyABmo8bEnkpr-zmL2cfTEDO2QTptK3FxRo",
+  "authDomain": "prophysical-6381f.firebaseapp.com",
+  "projectId": "prophysical-6381f",
+  "storageBucket": "prophysical-6381f.firebasestorage.app",
+  "messagingSenderId": "287253617903",
+  "appId": "1:287253617903:web:284a34d8f031b199330f1a",
+  "firestoreDatabaseId": "(default)"
 }

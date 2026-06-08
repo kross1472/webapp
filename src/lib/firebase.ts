@@ -2,16 +2,16 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
-  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  appId:             import.meta.env.VITE_FIREBASE_APP_ID,
-  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+export const firebaseConfig = {
+  apiKey:            "AIzaSyABmo8bEnkpr-zmL2cfTEDO2QTptK3FxRo",
+  projectId:         "prophysical-6381f",
+  appId:             "1:287253617903:web:284a34d8f031b199330f1a",
+  authDomain:        "prophysical-6381f.firebaseapp.com",
+  storageBucket:     "prophysical-6381f.firebasestorage.app",
+  messagingSenderId: "287253617903",
 };
 
-const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID;
+const firestoreDatabaseId = "(default)";
 
 const app = initializeApp(firebaseConfig);
 // CRITICAL: The app will break without this line

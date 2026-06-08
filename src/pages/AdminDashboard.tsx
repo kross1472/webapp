@@ -19,6 +19,7 @@ export function AdminDashboard() {
   const [physiotherapists, setPhysiotherapists] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!role || role === 'patient') return;
     const fetchPhysios = async () => {
       try {
         const qSnap1 = await getDocs(query(collection(db, 'staff_users')));
@@ -30,11 +31,11 @@ export function AdminDashboard() {
         const allUsers = [...users1, ...users2];
         const uniqueUsers = Array.from(new Map(allUsers.map(item => [item.id, item])).values());
         
-        setPhysiotherapists(uniqueUsers.filter((u: any) => u.role === 'physiotherapist'));
+        setPhysiotherapists(uniqueUsers.filter((u: any) => u.role === 'physiotherapist' || (u.role === 'admin' && u.isPhysiotherapist === true)));
       } catch (e) {}
     };
     fetchPhysios();
-  }, []);
+  }, [role]);
 
   const handleAssign = async (id: string, physioId: string) => {
     try {
@@ -50,6 +51,7 @@ export function AdminDashboard() {
   };
 
   useEffect(() => {
+    if (!role || role === 'patient') return;
     const q = query(collection(db, 'appointments'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const aps = await Promise.all(snapshot.docs.slice(0, 100).map(async (d) => {
@@ -70,7 +72,7 @@ export function AdminDashboard() {
       setAppointments(aps);
     });
     return unsubscribe;
-  }, []);
+  }, [role]);
 
   const handleConfirm = async (id: string, physioId?: string) => {
     try {
@@ -128,6 +130,7 @@ export function AdminDashboard() {
   ]);
 
   useEffect(() => {
+    if (!role || role === 'patient') return;
     const today = new Date().toISOString().split('T')[0];
     const fetchRealStats = async () => {
       try {
@@ -148,7 +151,7 @@ export function AdminDashboard() {
       }
     };
     fetchRealStats();
-  }, []);
+  }, [role]);
 
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];

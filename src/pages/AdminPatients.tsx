@@ -6,9 +6,11 @@ import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { PatientModal } from "../components/PatientModal";
 import { PatientHistoryModal } from "../components/PatientHistoryModal";
+import { useAuth } from "../lib/AuthContext";
 
 export function AdminPatients() {
   const navigate = useNavigate();
+  const { role } = useAuth();
   const [patients, setPatients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -23,6 +25,7 @@ export function AdminPatients() {
   const itemsPerPage = 8;
   
   useEffect(() => {
+    if (!role || role === 'patient') return;
     const q = query(collection(db, "patients"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setPatients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -32,7 +35,7 @@ export function AdminPatients() {
       setLoading(false);
     });
     return unsubscribe;
-  }, []);
+  }, [role]);
 
   const filteredPatients = patients.filter(p => {
     const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();

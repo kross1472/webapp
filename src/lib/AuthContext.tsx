@@ -44,47 +44,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(firebaseUser);
       if (firebaseUser) {
         try {
-          // Hardcoded role assignment to ensure root admins never get locked out
-          if (firebaseUser.email && (firebaseUser.email.toLowerCase() === 'cristhian.a.carrera@gmail.com' || firebaseUser.email.toLowerCase() === 'admin@prophysical.com')) {
-              setRole('admin');
-              setLoading(false);
-              
-              // We also try to bootstrap them in the DB in background if not exists, but we don't block them if rules throw error.
-              try {
-                  const uRef = doc(db, 'users', firebaseUser.uid);
-                  const uSnap = await getDoc(uRef);
-                  if (!uSnap.exists()) {
-                      await setDoc(uRef, { role: 'admin', email: firebaseUser.email, displayName: 'Root Admin', createdAt: Date.now() });
-                  }
-              } catch(e) {}
-              return;
-          }
-
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userDoc = await getDoc(userDocRef);
+          // 1. Check if user is a staff_user first by their active authenticated UID
+          const staffDocRef = doc(db, 'staff_users', firebaseUser.uid);
+          const staffDoc = await getDoc(staffDocRef);
           
-          if (userDoc.exists()) {
-            setRole(userDoc.data()?.role as UserRole['role']);
+          if (staffDoc.exists()) {
+             setRole(staffDoc.data()?.role as UserRole['role']);
           } else {
-            // Check if user is a staff_user created by admin
-            const staffDocRef = doc(db, 'staff_users', firebaseUser.uid);
-            const staffDoc = await getDoc(staffDocRef);
-            
-            if (staffDoc.exists()) {
-               setRole(staffDoc.data()?.role as UserRole['role']);
-            } else {
-               // Fallback: check if the staff document was saved by username instead of UID
-               if (firebaseUser.email) {
-                   const qs = await getDocs(query(collection(db, 'staff_users'), where('email', '==', firebaseUser.email)));
-                   if (!qs.empty) {
-                       setRole(qs.docs[0].data().role as UserRole['role']);
-                       setLoading(false);
-                       return;
-                   }
-               }
-               
-               setRole('patient');
-            }
+             // 2. Check if a staff document exists with their authenticated email
+             let staffFoundByEmail = false;
+             if (firebaseUser.email) {
+                 const emailLower = firebaseUser.email.toLowerCase();
+                 // Query staff_users by email address
+                 const qs = await getDocs(query(collection(db, 'staff_users'), where('email', '==', emailLower)));
+                 if (!qs.empty) {
+                     const matchedDoc = qs.docs[0];
+                     const matchedData = matchedDoc.data();
+                     
+                     // Migrate/save the document using the authenticated user's real UID
+                     await setDoc(doc(db, 'staff_users', firebaseUser.uid), {
+                         ...matchedData,
+                         email: emailLower
+                     });
+                     
+                     setRole(matchedData.role as UserRole['role']);
+                     staffFoundByEmail = true;
+                 }
+             }
+             
+             if (!staffFoundByEmail) {
+                 // 3. Fall back to checking the 'users' collection for patients/clients
+                 const userDocRef = doc(db, 'users', firebaseUser.uid);
+                 const userDoc = await getDoc(userDocRef);
+                 
+                 if (userDoc.exists()) {
+                   setRole(userDoc.data()?.role as UserRole['role']);
+                 } else {
+                   // Default fallback if not found in db records
+                   setRole('patient');
+                 }
+             }
           }
         } catch (e) {
           console.error("Error fetching user role", e);
@@ -116,14 +115,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithCredentials = async (u: string, p: string) => {
     const sanitizedU = u.trim().toLowerCase();
     
-    // 1. Try to query the DB for this user (could be email or username)
+    // 1. Try to query the DB for this user (could be email or username) without checking password field
     try {
         const usersRef = collection(db, 'staff_users');
-        let q = query(usersRef, where('username', '==', sanitizedU), where('password', '==', p));
+        let q = query(usersRef, where('username', '==', sanitizedU));
         let loginSnapshot = await getDocs(q);
         
         if (loginSnapshot.empty && sanitizedU.includes('@')) {
-            q = query(usersRef, where('email', '==', sanitizedU), where('password', '==', p));
+            q = query(usersRef, where('email', '==', sanitizedU));
             loginSnapshot = await getDocs(q);
         }
 
@@ -155,7 +154,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         
                         // Migrate the document to the new UID so that `isStaff` rules match request.auth.uid!!
                         if (cred.user.uid !== staffDoc.id) {
-                            await setDoc(doc(db, 'staff_users', cred.user.uid), { ...staffData, email: emailToUse });
+                            const { password, ...cleanedData } = staffData;
+                            await setDoc(doc(db, 'staff_users', cred.user.uid), { ...cleanedData, email: emailToUse });
                             // Clean up local storage mocks just in case
                             localStorage.removeItem('local_staff_id');
                         }
@@ -184,45 +184,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.warn("DB login check failed:", e);
     }
 
-    // 2. Hardcoded ADMIN bootstrap if no DB entry exists
-    if (sanitizedU === 'admin' && p === 'admin2026') {
-         try {
-             const cred = await createUserWithEmailAndPassword(auth, 'admin@prophysical.com', 'admin2026');
-             await setDoc(doc(db, 'staff_users', cred.user.uid), {
-                   username: 'admin',
-                   password: 'admin2026',
-                   name: 'Administrador Principal',
-                   role: 'admin',
-                   email: 'admin@prophysical.com',
-                   createdAt: Date.now()
-             });
-             return;
-         } catch(e: any) {
-             if (e.code === 'auth/email-already-in-use') {
-                 // Try login if it already exists
-                 try {
-                     await signInWithEmailAndPassword(auth, 'admin@prophysical.com', 'admin2026');
-                     return;
-                 } catch(loginErr: any) {
-                     if (loginErr.code === 'auth/operation-not-allowed') {
-                         localStorage.setItem('demo_admin', 'true');
-                         setUser({ uid: 'demo-admin-id', email: 'admin@prophysical.com', displayName: 'Administrador Demo' } as unknown as User);
-                         setRole('admin');
-                         return;
-                     }
-                 }
-             } else if (e.code === 'auth/operation-not-allowed') {
-                 // DEMO BYPASS: Since Firebase Auth is not active, simulate login
-                 localStorage.setItem('demo_admin', 'true');
-                 setUser({ uid: 'demo-admin-id', email: 'admin@prophysical.com', displayName: 'Administrador Demo' } as unknown as User);
-                 setRole('admin');
-                 return;
-             }
-             console.error("Bootstrap admin failed", e);
-         }
-    }
-
-    // 3. Last fallback: Try pure Firebase Auth
+    // 2. Last fallback: Try pure Firebase Auth
     try {
         let finalEmail = sanitizedU;
         if (!sanitizedU.includes('@')) {
