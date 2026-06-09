@@ -25,18 +25,27 @@ export function BookingForm() {
   React.useEffect(() => {
     if (role === 'admin' || role === 'receptionist' || role === 'physiotherapist') {
       const fetchPhysios = async () => {
+        let users1: any[] = [];
+        let users2: any[] = [];
+        
         try {
           const qSnap1 = await getDocs(query(collection(db, 'staff_users')));
+          users1 = qSnap1.docs.map(d => ({ id: d.id, ...d.data() }));
+        } catch (e) {
+          console.warn("Error fetching staff_users list in BookingForm:", e);
+        }
+
+        try {
           const qSnap2 = await getDocs(query(collection(db, 'users')));
-          
-          const users1 = qSnap1.docs.map(d => ({ id: d.id, ...d.data() }));
-          const users2 = qSnap2.docs.map(d => ({ id: d.id, ...d.data() }));
-          
-          const allUsers = [...users1, ...users2];
-          const uniqueUsers = Array.from(new Map(allUsers.map(item => [item.id, item])).values());
-          
-          setPhysiotherapists(uniqueUsers.filter((u: any) => u.role === 'physiotherapist' || (u.role === 'admin' && u.isPhysiotherapist === true)));
-        } catch (e) {}
+          users2 = qSnap2.docs.map(d => ({ id: d.id, ...d.data() }));
+        } catch (e) {
+          console.warn("Error fetching users list in BookingForm:", e);
+        }
+        
+        const allUsers = [...users1, ...users2];
+        const uniqueUsers = Array.from(new Map(allUsers.map(item => [item.id, item])).values());
+        
+        setPhysiotherapists(uniqueUsers.filter((u: any) => u.role === 'physiotherapist' || (u.role === 'admin' && u.isPhysiotherapist === true)));
       };
       fetchPhysios();
     }

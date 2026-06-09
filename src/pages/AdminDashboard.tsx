@@ -2,12 +2,13 @@
 import { Users, Calendar as CalendarIcon, TrendingUp, Activity, FileText, CheckCircle, UserPlus, List, Grid, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { collection, query, orderBy, onSnapshot, getDoc, doc, updateDoc, getDocs, addDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { db, auth } from "../lib/firebase";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "../lib/AuthContext";
 import { AdminCalendarView } from "../components/AdminCalendarView";
 import { BookingForm } from "../components/BookingForm";
+import { handleFirestoreError, OperationType } from "../lib/firestoreUtils";
 
 export function AdminDashboard() {
   const navigate = useNavigate();
@@ -21,18 +22,27 @@ export function AdminDashboard() {
   useEffect(() => {
     if (!role || role === 'patient') return;
     const fetchPhysios = async () => {
+      let users1: any[] = [];
+      let users2: any[] = [];
+      
       try {
         const qSnap1 = await getDocs(query(collection(db, 'staff_users')));
+        users1 = qSnap1.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch (e) {
+        console.warn("Error fetching staff_users list in AdminDashboard:", e);
+      }
+
+      try {
         const qSnap2 = await getDocs(query(collection(db, 'users')));
-        
-        const users1 = qSnap1.docs.map(d => ({ id: d.id, ...d.data() }));
-        const users2 = qSnap2.docs.map(d => ({ id: d.id, ...d.data() }));
-        
-        const allUsers = [...users1, ...users2];
-        const uniqueUsers = Array.from(new Map(allUsers.map(item => [item.id, item])).values());
-        
-        setPhysiotherapists(uniqueUsers.filter((u: any) => u.role === 'physiotherapist' || (u.role === 'admin' && u.isPhysiotherapist === true)));
-      } catch (e) {}
+        users2 = qSnap2.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch (e) {
+        console.warn("Error fetching users list in AdminDashboard (might be expected for non-admin):", e);
+      }
+      
+      const allUsers = [...users1, ...users2];
+      const uniqueUsers = Array.from(new Map(allUsers.map(item => [item.id, item])).values());
+      
+      setPhysiotherapists(uniqueUsers.filter((u: any) => u.role === 'physiotherapist' || (u.role === 'admin' && u.isPhysiotherapist === true)));
     };
     fetchPhysios();
   }, [role]);
@@ -132,6 +142,11 @@ export function AdminDashboard() {
   useEffect(() => {
     if (!role || role === 'patient') return;
     const today = new Date().toISOString().split('T')[0];
+    
+    let retryTimeout: any;
+    let attempts = 0;
+    const maxAttempts = 3;
+
     const fetchRealStats = async () => {
       try {
         const patientsSnap = await getDocs(collection(db, 'patients'));
@@ -146,11 +161,25 @@ export function AdminDashboard() {
           if (s.title === "Historias Clínicas") return { ...s, value: historiesCount.toString() };
           return s;
         }));
-      } catch (e) {
-        console.warn("Error fetching stats:", e);
+      } catch (e: any) {
+        console.warn(`[AdminDashboard] Attempt ${attempts + 1} failed loading stats:`, e);
+        if (e.message?.includes("permis") && attempts < maxAttempts) {
+          attempts++;
+          retryTimeout = setTimeout(() => {
+            console.log(`[AdminDashboard] Retrying stats load... (Attempt ${attempts + 1})`);
+            fetchRealStats();
+          }, 1500);
+        } else {
+          // Soft fail for UI, but register error properly
+          console.error("Critical firestore error fetching stats:", e);
+        }
       }
     };
     fetchRealStats();
+
+    return () => {
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
   }, [role]);
 
   useEffect(() => {

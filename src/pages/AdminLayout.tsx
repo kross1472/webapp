@@ -179,7 +179,7 @@ export function AdminLayout() {
            <Link to="/admin/history/new" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors">
              <FileText size={18} /> Historias Clínicas
            </Link>
-           {role === 'admin' && (
+           {(role === 'admin' || role === 'receptionist') && (
              <>
                <Link to="/admin/content" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition-colors">
                  <Settings size={18} /> Sitio Web

@@ -13,8 +13,8 @@ export function AdminContent() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
-  if (role !== 'admin') {
-    return <div className="p-8"><p className="text-red-500 font-bold">Acceso denegado. Solo administradores pueden ver esta página.</p></div>;
+  if (role !== 'admin' && role !== 'receptionist') {
+    return <div className="p-8"><p className="text-red-500 font-bold">Acceso denegado. No tienes permisos para ver esta sección.</p></div>;
   }
 
   const fetchData = async () => {

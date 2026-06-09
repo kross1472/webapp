@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot, getDocs } from "firebase/firestore";
-import { db } from "../lib/firebase";
-import { Users, Search, Activity, FileText, ChevronLeft, ChevronRight, MessageCircle, Edit2, Download, Plus } from "lucide-react";
+import { collection, query, orderBy, onSnapshot, getDocs, doc, deleteDoc } from "firebase/firestore";
+import { db, auth } from "../lib/firebase";
+import { Users, Search, Activity, FileText, ChevronLeft, ChevronRight, MessageCircle, Edit2, Download, Plus, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { PatientModal } from "../components/PatientModal";
 import { PatientHistoryModal } from "../components/PatientHistoryModal";
 import { useAuth } from "../lib/AuthContext";
+import { toast } from "sonner";
+import { handleFirestoreError, OperationType } from "../lib/firestoreUtils";
 
 export function AdminPatients() {
   const navigate = useNavigate();
@@ -26,15 +28,38 @@ export function AdminPatients() {
   
   useEffect(() => {
     if (!role || role === 'patient') return;
-    const q = query(collection(db, "patients"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setPatients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching patients:", error);
-      setLoading(false);
-    });
-    return unsubscribe;
+    
+    let unsubscribe: () => void;
+    let retryTimeout: any;
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    const startListener = () => {
+      const q = query(collection(db, "patients"), orderBy("createdAt", "desc"));
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        setPatients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setLoading(false);
+      }, (error) => {
+        console.error(`[AdminPatients] Attempt ${attempts + 1} failed loading patients:`, error);
+        if (error.message?.includes("permission") && attempts < maxAttempts) {
+          attempts++;
+          retryTimeout = setTimeout(() => {
+            console.log(`[AdminPatients] Retrying fetch patients... (Attempt ${attempts + 1})`);
+            startListener();
+          }, 1500);
+        } else {
+          handleFirestoreError(error, OperationType.GET, "patients");
+          setLoading(false);
+        }
+      });
+    };
+
+    startListener();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
   }, [role]);
 
   const filteredPatients = patients.filter(p => {
@@ -94,6 +119,21 @@ export function AdminPatients() {
   const openPatientHistory = (p: any) => {
     setSelectedPatient(p);
     setIsHistoryModalOpen(true);
+  };
+
+  const handleDeletePatient = async (e: React.MouseEvent, p: any) => {
+    e.stopPropagation();
+    if (!p || !p.id) return;
+    const confirmDelete = window.confirm(`¿Estás seguro de que deseas eliminar al paciente "${p.firstName || ''} ${p.lastName || ''}"? Esta acción eliminará permanentemente su registro.`);
+    if (!confirmDelete) return;
+
+    try {
+      await deleteDoc(doc(db, "patients", p.id));
+      toast.success("Paciente eliminado exitosamente");
+    } catch (err) {
+      console.error("Error al eliminar paciente:", err);
+      toast.error("Error al intentar eliminar el paciente");
+    }
   };
 
   return (
@@ -224,6 +264,15 @@ export function AdminPatients() {
                         >
                           <FileText size={14} /> Nueva
                         </button>
+                        {(role === 'admin' || role === 'physiotherapist') && (
+                          <button 
+                            onClick={(e) => handleDeletePatient(e, p)}
+                            title="Eliminar Paciente (Fisioterapeutas y Admin)"
+                            className="p-2 rounded-lg text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </motion.tr>

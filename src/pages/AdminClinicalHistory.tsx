@@ -1,24 +1,88 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "../components/ui/Button";
-import { db } from "../lib/firebase";
-import { collection, addDoc, doc, setDoc, getDocs } from "firebase/firestore";
-import { FileText, Save, ArrowLeft, Download } from "lucide-react";
+import { db, auth } from "../lib/firebase";
+import { collection, addDoc, doc, setDoc, getDocs, query } from "firebase/firestore";
+import { FileText, Save, ArrowLeft, Download, Plus, Trash2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { motion } from "motion/react";
+import { useAuth } from "../lib/AuthContext";
+import { handleFirestoreError, OperationType } from "../lib/firestoreUtils";
+
+export interface EvolutionSession {
+  sessionNumber: number;
+  date: string;
+  painLevel: number;
+  procedure: string;
+  evolution: string;
+  physiotherapist: string;
+}
+
+export interface TreatmentPlan {
+  id: string;
+  treatmentStartDate: string;
+  recommendedSessions: number | '';
+  attendedSessionsCount: number | '';
+  attendedDates: string;
+  treatmentPlan: string;
+  observations: string;
+  sessions: EvolutionSession[];
+}
 
 export function AdminClinicalHistory() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { role } = useAuth();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [patients, setPatients] = useState<any[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [physiotherapists, setPhysiotherapists] = useState<any[]>([]);
 
   // Form State
   const [patientId, setPatientId] = useState('temp-patient-' + Math.floor(Math.random() * 1000));
   const [patientName, setPatientName] = useState('');
   const [historyId, setHistoryId] = useState<string | null>(null);
+
+  // Anamnesis / Background State
+  const [reason, setReason] = useState('');
+  const [illness, setIllness] = useState('');
+  const [painScale, setPainScale] = useState(0);
+  const [medicalHist, setMedicalHist] = useState('');
+  const [physicalExam, setPhysicalExam] = useState('');
+  const [diagnosis, setDiagnosis] = useState('');
+
+  // Legacy single plan compatibility states
+  const [treatment, setTreatment] = useState('');
+  const [evolution, setEvolution] = useState('');
+  const [observations, setObservations] = useState('');
+  const [treatmentStartDate, setTreatmentStartDate] = useState('');
+  const [recommendedSessions, setRecommendedSessions] = useState<number | ''>('');
+  const [attendedSessionsCount, setAttendedSessionsCount] = useState<number | ''>('');
+  const [attendedDates, setAttendedDates] = useState('');
+
+  // Dynamic Treatment Plans list state
+  const [treatmentPlans, setTreatmentPlans] = useState<TreatmentPlan[]>([
+    {
+      id: 'plan-initial',
+      treatmentStartDate: new Date().toISOString().split('T')[0],
+      recommendedSessions: '',
+      attendedSessionsCount: '',
+      attendedDates: '',
+      treatmentPlan: '',
+      observations: '',
+      sessions: []
+    }
+  ]);
+  
+  // Demographics (PDF)
+  const [idCard, setIdCard] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [phone, setPhone] = useState('');
+  const [occupation, setOccupation] = useState('');
+  const [address, setAddress] = useState('');
+  const [email, setEmail] = useState('');
 
   useEffect(() => {
     if (location.state?.patient) {
@@ -35,7 +99,35 @@ export function AdminClinicalHistory() {
       setMedicalHist(h.medicalHistory || '');
       setPhysicalExam(h.physicalExamination || '');
       setDiagnosis(h.physiotherapyDiagnosis || '');
-      setTreatment(h.treatmentPlan || '');
+      
+      // Load modern dynamic plans if present, otherwise map legacy fields to the list
+      if (h.treatmentPlans && Array.isArray(h.treatmentPlans) && h.treatmentPlans.length > 0) {
+        setTreatmentPlans(h.treatmentPlans);
+      } else {
+        setTreatmentPlans([
+          {
+            id: 'legacy-plan-' + Math.floor(Math.random() * 1000),
+            treatmentStartDate: h.treatmentStartDate || '',
+            recommendedSessions: h.recommendedSessions || '',
+            attendedSessionsCount: h.attendedSessionsCount || '',
+            attendedDates: h.attendedDates || '',
+            treatmentPlan: h.treatmentPlan || h.treatment || '',
+            observations: h.observations || '',
+            sessions: h.sessions || (h.evolution ? [
+              {
+                sessionNumber: 1,
+                date: h.treatmentStartDate || new Date().toISOString().split('T')[0],
+                painLevel: h.painScale || 0,
+                procedure: 'Evaluación y terapia inicial',
+                evolution: h.evolution,
+                physiotherapist: ''
+              }
+            ] : [])
+          }
+        ]);
+      }
+
+      setTreatment(h.treatmentPlan || h.treatment || '');
       setEvolution(h.evolution || '');
       setObservations(h.observations || '');
       setTreatmentStartDate(h.treatmentStartDate || '');
@@ -53,40 +145,160 @@ export function AdminClinicalHistory() {
   }, [location.state]);
 
   useEffect(() => {
+    if (!role || role === 'patient') return;
+    
+    let retryTimeout: any;
+    let attempts = 0;
+    const maxAttempts = 3;
+
     const fetchPatients = async () => {
       try {
         const snap = await getDocs(collection(db, 'patients'));
         setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch (e) {
-        console.error("Could not load patients", e);
+      } catch (e: any) {
+        console.warn(`[AdminClinicalHistory] Attempt ${attempts + 1} failed fetching patients:`, e);
+        if (e.message?.includes("permis") && attempts < maxAttempts) {
+          attempts++;
+          retryTimeout = setTimeout(() => {
+            console.log(`[AdminClinicalHistory] Retrying patients fetch... (Attempt ${attempts + 1})`);
+            fetchPatients();
+          }, 1500);
+        } else {
+          handleFirestoreError(e, OperationType.GET, "patients");
+        }
       }
     };
     fetchPatients();
-  }, []);
 
-  // Form State
-  const [reason, setReason] = useState('');
-  const [illness, setIllness] = useState('');
-  const [painScale, setPainScale] = useState(0);
-  const [medicalHist, setMedicalHist] = useState('');
-  const [physicalExam, setPhysicalExam] = useState('');
-  const [diagnosis, setDiagnosis] = useState('');
-  const [treatment, setTreatment] = useState('');
-  const [evolution, setEvolution] = useState('');
-  const [observations, setObservations] = useState('');
-  const [treatmentStartDate, setTreatmentStartDate] = useState('');
-  const [recommendedSessions, setRecommendedSessions] = useState<number | ''>('');
-  const [attendedSessionsCount, setAttendedSessionsCount] = useState<number | ''>('');
-  const [attendedDates, setAttendedDates] = useState('');
-  
-  // Demographics (PDF)
-  const [idCard, setIdCard] = useState('');
-  const [age, setAge] = useState('');
-  const [gender, setGender] = useState('');
-  const [phone, setPhone] = useState('');
-  const [occupation, setOccupation] = useState('');
-  const [address, setAddress] = useState('');
-  const [email, setEmail] = useState('');
+    // Resiliently fetch staff and physiotherapists to use in the therapist dynamic select list
+    const fetchPhysiotherapists = async () => {
+      let users1: any[] = [];
+      let users2: any[] = [];
+      try {
+        const qSnap1 = await getDocs(collection(db, 'staff_users'));
+        users1 = qSnap1.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch (e) {
+        console.warn("Could not load staff_users", e);
+      }
+      try {
+        const qSnap2 = await getDocs(collection(db, 'users'));
+        users2 = qSnap2.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch (e) {
+        console.warn("Could not load users collection", e);
+      }
+      const combined = [...users1, ...users2];
+      const unique = Array.from(new Map(combined.map(item => [item.id, item])).values())
+        .filter((u: any) => u.role === 'physiotherapist' || (u.role === 'admin' && u.isPhysiotherapist === true));
+      setPhysiotherapists(unique);
+    };
+    fetchPhysiotherapists();
+
+    return () => {
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
+  }, [role]);
+
+  // Helper functions for treatment plan/sessions management
+  const addTreatmentPlan = () => {
+    setTreatmentPlans([
+      ...treatmentPlans,
+      {
+        id: 'plan-' + Date.now(),
+        treatmentStartDate: new Date().toISOString().split('T')[0],
+        recommendedSessions: '',
+        attendedSessionsCount: '',
+        attendedDates: '',
+        treatmentPlan: '',
+        observations: '',
+        sessions: []
+      }
+    ]);
+    toast.success("Nuevo Plan de Tratamiento agregado.");
+  };
+
+  const removeTreatmentPlan = (index: number) => {
+    if (treatmentPlans.length <= 1) return;
+    const updated = treatmentPlans.filter((_, i) => i !== index);
+    setTreatmentPlans(updated);
+    toast.info("Plan de Tratamiento removido.");
+  };
+
+  const updateTreatmentPlan = (index: number, fields: Partial<TreatmentPlan>) => {
+    const updated = [...treatmentPlans];
+    updated[index] = { ...updated[index], ...fields };
+    setTreatmentPlans(updated);
+  };
+
+  const addSession = (planIndex: number) => {
+    const updated = [...treatmentPlans];
+    const plan = updated[planIndex];
+    const nextNum = plan.sessions.length > 0 ? Math.max(...plan.sessions.map(s => s.sessionNumber)) + 1 : 1;
+    plan.sessions = [
+      ...plan.sessions,
+      {
+        sessionNumber: nextNum,
+        date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+        painLevel: 5,
+        procedure: '',
+        evolution: '',
+        physiotherapist: ''
+      }
+    ];
+    
+    // Auto increment assisted sessions
+    plan.attendedSessionsCount = plan.sessions.length;
+    // Auto update attended sessions dates
+    const dates = plan.sessions.map(s => {
+      if (!s.date) return '';
+      const parts = s.date.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}`; // DD/MM reference
+      return s.date;
+    }).filter(d => d).join(', ');
+    plan.attendedDates = dates;
+
+    setTreatmentPlans(updated);
+    toast.success(`Sesión ${nextNum} agregada.`);
+  };
+
+  const removeSession = (planIndex: number, sessionNum: number) => {
+    const updated = [...treatmentPlans];
+    const plan = updated[planIndex];
+    plan.sessions = plan.sessions.filter(s => s.sessionNumber !== sessionNum);
+    
+    // Auto update assisted sessions
+    plan.attendedSessionsCount = plan.sessions.length;
+    // Auto update dates
+    const dates = plan.sessions.map(s => {
+      if (!s.date) return '';
+      const parts = s.date.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
+      return s.date;
+    }).filter(d => d).join(', ');
+    plan.attendedDates = dates;
+
+    setTreatmentPlans(updated);
+    toast.info(`Sesión ${sessionNum} removida.`);
+  };
+
+  const updateSession = (planIndex: number, sessionIndex: number, fields: Partial<EvolutionSession>) => {
+    const updated = [...treatmentPlans];
+    const plan = updated[planIndex];
+    const session = plan.sessions[sessionIndex];
+    plan.sessions[sessionIndex] = { ...session, ...fields };
+    
+    // Auto recalculate dates list if session date changed
+    if (fields.hasOwnProperty('date')) {
+      const dates = plan.sessions.map(s => {
+        if (!s.date) return '';
+        const parts = s.date.split('-');
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
+        return s.date;
+      }).filter(d => d).join(', ');
+      plan.attendedDates = dates;
+    }
+
+    setTreatmentPlans(updated);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,32 +307,25 @@ export function AdminClinicalHistory() {
       return;
     }
     
-    if (treatmentStartDate) {
-      const selectedDate = new Date(treatmentStartDate);
-      const today = new Date();
-      // Reset hours to compare only dates
-      today.setHours(0, 0, 0, 0);
-      selectedDate.setHours(0, 0, 0, 0); // We only get YYYY-MM-DD from input, so it's already local midnight-ish
-
-      if (selectedDate > today) {
-        toast.error("La fecha de inicio de tratamiento no puede ser futura");
+    // Validations on all plans
+    for (let i = 0; i < treatmentPlans.length; i++) {
+      const plan = treatmentPlans[i];
+      if (!plan.treatmentPlan.trim()) {
+        toast.error(`El Plan de Tratamiento del bloque #${i + 1} es requerido.`);
         return;
       }
-    }
-
-    if (recommendedSessions !== '' && Number(recommendedSessions) < 0) {
-      toast.error("Las sesiones recomendadas no pueden ser negativas");
-      return;
-    }
-
-    if (attendedSessionsCount !== '' && Number(attendedSessionsCount) < 0) {
-      toast.error("Las sesiones asistidas no pueden ser negativas");
-      return;
+      if (plan.recommendedSessions !== '' && Number(plan.recommendedSessions) < 0) {
+        toast.error(`Las sesiones recomendadas en el bloque #${i + 1} no pueden ser negativas.`);
+        return;
+      }
+      if (plan.attendedSessionsCount !== '' && Number(plan.attendedSessionsCount) < 0) {
+        toast.error(`Las sesiones asistidas en el bloque #${i + 1} no pueden ser negativas.`);
+        return;
+      }
     }
     
     setLoading(true);
     try {
-      // Create patient if it doesn't really exist (mocking the flow for now)
       const patientRef = doc(db, 'patients', patientId);
       await setDoc(patientRef, {
         firstName: patientName.split(' ')[0] || '',
@@ -128,7 +333,17 @@ export function AdminClinicalHistory() {
         createdAt: Date.now()
       }, { merge: true });
 
-      // Add Clinical History subcollection
+      // Save plan-0 to legacy single fields for robust backward-compatibility
+      const firstPlan = treatmentPlans[0] || {
+        treatmentStartDate: '',
+        recommendedSessions: '',
+        attendedSessionsCount: '',
+        attendedDates: '',
+        treatmentPlan: '',
+        observations: '',
+        sessions: []
+      };
+
       const historyData = {
         date: new Date().toISOString().split('T')[0],
         idCard,
@@ -144,22 +359,23 @@ export function AdminClinicalHistory() {
         medicalHistory: medicalHist,
         physicalExamination: physicalExam,
         physiotherapyDiagnosis: diagnosis,
-        treatmentPlan: treatment,
-        evolution: evolution,
-        observations: observations,
-        treatmentStartDate,
-        recommendedSessions,
-        attendedSessionsCount,
-        attendedDates,
+        // Legacy single-plan fields for backward-compatibility with reports/views
+        treatmentPlan: firstPlan.treatmentPlan,
+        observations: firstPlan.observations,
+        treatmentStartDate: firstPlan.treatmentStartDate,
+        recommendedSessions: firstPlan.recommendedSessions,
+        attendedSessionsCount: firstPlan.attendedSessionsCount,
+        attendedDates: firstPlan.attendedDates,
+        evolution: firstPlan.sessions.map(s => `Sesión ${s.sessionNumber}: ${s.evolution || ''}`).join(' | ') || evolution,
+        // Modern dynamic array structures
+        treatmentPlans: treatmentPlans,
       };
 
       if (historyId) {
-        // Update existing history
         const hRef = doc(db, 'patients', patientId, 'clinical_histories', historyId);
         await setDoc(hRef, { ...historyData, updatedAt: Date.now() }, { merge: true });
-        toast.success("Historia Clínica actualizada con éxito");
+        toast.success("Historia Clínica registrada con éxito");
       } else {
-        // Create new history
         const historyRef = collection(db, 'patients', patientId, 'clinical_histories');
         await addDoc(historyRef, { ...historyData, createdAt: Date.now() });
         toast.success("Historia Clínica guardada con éxito");
@@ -391,78 +607,246 @@ export function AdminClinicalHistory() {
            </div>
         </motion.div>
 
-        {/* Tratamiento y Observaciones */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="p-6 md:p-8 space-y-6">
-           <h3 className="text-lg font-bold text-slate-800 mb-4">Plan y Evolución</h3>
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-             <div>
-               <label className="block text-sm font-bold text-slate-700 mb-2">Fecha Inicio Tratamiento</label>
-               <input 
-                 type="date" 
-                 max={new Date().toISOString().split('T')[0]}
-                 value={treatmentStartDate} onChange={e => setTreatmentStartDate(e.target.value)}
-                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all shadow-sm text-slate-700" 
-               />
-             </div>
-             <div>
-               <label className="block text-sm font-bold text-slate-700 mb-2">Sesiones Recomendadas</label>
-               <input 
-                 type="number" min="0" value={recommendedSessions} onChange={e => setRecommendedSessions(e.target.value === '' ? '' : Number(e.target.value))}
-                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all shadow-sm text-slate-700" 
-                 placeholder="Ej. 10"
-               />
-             </div>
-             <div>
-               <label className="block text-sm font-bold text-slate-700 mb-2">Sesiones Asistidas</label>
-               <input 
-                 type="number" min="0" value={attendedSessionsCount} onChange={e => setAttendedSessionsCount(e.target.value === '' ? '' : Number(e.target.value))}
-                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all shadow-sm text-slate-700" 
-                 placeholder="Ej. 3"
-               />
-             </div>
-             <div>
-               <label className="block text-sm font-bold text-slate-700 mb-2">Días Asistidos</label>
-               <input 
-                 type="text" value={attendedDates} onChange={e => setAttendedDates(e.target.value)}
-                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all shadow-sm text-slate-700" 
-                 placeholder="Ej. 12/05, 14/05"
-               />
-             </div>
+         {/* Tratamiento y Observaciones */}
+         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="p-6 md:p-8 space-y-8">
+           <div className="border-b border-slate-150 pb-4">
+             <h3 className="text-xl font-bold text-slate-800">Planes de Tratamiento & Tablas de Evolución</h3>
+             <p className="text-xs text-slate-500">Crea múltiples planes de tratamiento y registra de forma dinámica la evolución y procedimiento de cada sesión de fisioterapia a lo largo del tiempo.</p>
            </div>
-           
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
-             <div>
-               <label className="block text-sm font-bold text-slate-700 mb-2">Plan de Tratamiento / Objetivos</label>
-               <textarea 
-                 rows={4} required value={treatment} onChange={e => setTreatment(e.target.value)}
-                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all resize-none" 
-               />
-             </div>
-             <div className="flex flex-col gap-6">
-               <div>
-                 <label className="block text-sm font-bold text-slate-700 mb-2">Evolución de la Sesión</label>
-                 <textarea 
-                   rows={2} value={evolution} onChange={e => setEvolution(e.target.value)}
-                   className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all resize-none" 
-                 />
+
+           <div className="space-y-10">
+             {treatmentPlans.map((plan, idx) => (
+               <div key={plan.id || idx} className="p-6 border border-slate-200 rounded-2xl relative bg-slate-50/20 space-y-6">
+                 {/* Block Header */}
+                 <div className="flex justify-between items-center bg-slate-100/60 p-4 rounded-xl -mx-6 -mt-6 border-b border-slate-200">
+                   <h4 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
+                     <FileText size={16} className="text-brand-light" /> Plan de Tratamiento & Evolución #{idx + 1}
+                   </h4>
+                   {treatmentPlans.length > 1 && (
+                     <button 
+                       type="button" 
+                       onClick={() => removeTreatmentPlan(idx)} 
+                       className="text-red-500 hover:text-red-700 hover:bg-red-50 gap-1 px-3 py-1.5 rounded-lg border border-red-100 flex items-center text-xs font-semibold bg-white transition-all shadow-sm"
+                     >
+                       <Trash2 size={14} /> Eliminar Plan
+                     </button>
+                   )}
+                 </div>
+
+                 {/* Basic Plan Information Card */}
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                   <div>
+                     <label className="block text-xs font-bold text-slate-600 mb-1.5">Fecha Inicio Tratamiento</label>
+                     <input 
+                       type="date" 
+                       max={new Date().toISOString().split('T')[0]}
+                       value={plan.treatmentStartDate || ''} 
+                       onChange={e => updateTreatmentPlan(idx, { treatmentStartDate: e.target.value })}
+                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-brand-light transition-all text-xs text-slate-700" 
+                     />
+                   </div>
+                   <div>
+                     <label className="block text-xs font-bold text-slate-600 mb-1.5">Sesiones Recomendadas</label>
+                     <input 
+                       type="number" 
+                       min="0" 
+                       value={plan.recommendedSessions || ''} 
+                       onChange={e => updateTreatmentPlan(idx, { recommendedSessions: e.target.value === '' ? '' : Number(e.target.value) })}
+                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-brand-light transition-all text-xs text-slate-700" 
+                       placeholder="Ej. 10"
+                     />
+                   </div>
+                   <div>
+                     <label className="block text-xs font-bold text-slate-600 mb-1.5">Sesiones Asistidas (Calculado)</label>
+                     <input 
+                       type="number" 
+                       min="0" 
+                       readOnly
+                       disabled
+                       value={plan.attendedSessionsCount || '0'} 
+                       className="w-full bg-slate-100/80 border border-slate-200 rounded-xl px-3 py-2.5 outline-none text-xs text-slate-500 cursor-not-allowed font-medium" 
+                     />
+                   </div>
+                   <div>
+                     <label className="block text-xs font-bold text-slate-600 mb-1.5">Días Asistidos (Auto)</label>
+                     <input 
+                       type="text" 
+                       readOnly
+                       disabled
+                       value={plan.attendedDates || ''} 
+                       className="w-full bg-slate-100/80 border border-slate-200 rounded-xl px-3 py-2.5 outline-none text-xs text-slate-500 cursor-not-allowed truncate" 
+                       placeholder="Se autocompleta con las sesiones"
+                     />
+                   </div>
+                 </div>
+
+                 {/* Treatment Goals & Observations */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                   <div>
+                     <label className="block text-xs font-bold text-slate-600 mb-1.5">Plan de Tratamiento / Objetivos (Requerido)</label>
+                     <textarea 
+                       rows={3} 
+                       required 
+                       value={plan.treatmentPlan || ''} 
+                       onChange={e => updateTreatmentPlan(idx, { treatmentPlan: e.target.value })}
+                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand-light transition-all text-xs resize-none" 
+                       placeholder="Describir los objetivos terapéuticos..."
+                     />
+                   </div>
+                   <div>
+                     <label className="block text-xs font-bold text-slate-600 mb-1.5">Recomendaciones para el Hogar / Observaciones</label>
+                     <textarea 
+                       rows={3} 
+                       value={plan.observations || ''} 
+                       onChange={e => updateTreatmentPlan(idx, { observations: e.target.value })}
+                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand-light transition-all text-xs resize-none" 
+                       placeholder="Indicaciones para el paciente..."
+                     />
+                   </div>
+                 </div>
+
+                 {/* Dynamic Evolution Table */}
+                 <div className="pt-4 border-t border-slate-100 space-y-3">
+                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                     <div>
+                       <span className="block text-xs font-bold text-slate-700 uppercase tracking-wide">Tabla dinámica de evolución</span>
+                     </div>
+                     <button 
+                       type="button" 
+                       onClick={() => addSession(idx)}
+                       className="bg-brand-dark hover:bg-brand-dark/95 text-white gap-1 px-3 py-1.5 text-xs font-bold rounded-lg shadow-sm flex items-center justify-center border border-brand-dark transition-all self-start"
+                     >
+                       <Plus size={14} /> Agregar sesión
+                     </button>
+                   </div>
+
+                   {plan.sessions && plan.sessions.length > 0 ? (
+                     <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-sm bg-white">
+                       <table className="w-full border-collapse text-left text-xs min-w-[700px]">
+                         <thead>
+                           <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 font-bold uppercase tracking-wider">
+                             <th className="px-3 py-2.5 text-center w-16">Sesión</th>
+                             <th className="px-3 py-2.5 w-36">Fecha</th>
+                             <th className="px-3 py-2.5 w-28 text-center">Dolor (EVA)</th>
+                             <th className="px-3 py-2.5 w-[30%]">Procedimiento realizado</th>
+                             <th className="px-3 py-2.5 w-[30%]">Evolución clínica</th>
+                             <th className="px-3 py-2.5 w-40">Fisioterapeuta</th>
+                             <th className="px-3 py-2.5 text-center w-12">Acción</th>
+                           </tr>
+                         </thead>
+                         <tbody className="divide-y divide-slate-100">
+                           {plan.sessions.map((session, sIdx) => (
+                             <tr key={session.sessionNumber || sIdx} className="hover:bg-slate-50/50 transition-colors">
+                               <td className="px-3 py-2 text-center font-bold text-slate-800">
+                                 #{session.sessionNumber}
+                               </td>
+                               <td className="px-3 py-2">
+                                 <input 
+                                   type="date" 
+                                   value={session.date || ''} 
+                                   onChange={e => updateSession(idx, sIdx, { date: e.target.value })}
+                                   className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-brand-light text-slate-700 text-xs"
+                                 />
+                               </td>
+                               <td className="px-3 py-2">
+                                 <select 
+                                   value={session.painLevel} 
+                                   onChange={e => updateSession(idx, sIdx, { painLevel: Number(e.target.value) })}
+                                   className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-brand-light text-xs font-semibold"
+                                 >
+                                   {[...Array(11).keys()].map(val => (
+                                     <option key={val} value={val}>
+                                       EVA {val}
+                                     </option>
+                                   ))}
+                                 </select>
+                               </td>
+                               <td className="px-3 py-2">
+                                 <input 
+                                   type="text" 
+                                   placeholder="Ej. TENS + ULTRASONIDO"
+                                   value={session.procedure || ''} 
+                                   onChange={e => updateSession(idx, sIdx, { procedure: e.target.value })}
+                                   className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-brand-light text-xs text-slate-700 font-medium"
+                                 />
+                               </td>
+                               <td className="px-3 py-2">
+                                 <input 
+                                   type="text" 
+                                   placeholder="Ej. Dolor disminuye, marcha estable"
+                                   value={session.evolution || ''} 
+                                   onChange={e => updateSession(idx, sIdx, { evolution: e.target.value })}
+                                   className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-brand-light text-xs text-slate-700"
+                                 />
+                               </td>
+                               <td className="px-3 py-2">
+                                 <select 
+                                   value={session.physiotherapist || ''} 
+                                   onChange={e => updateSession(idx, sIdx, { physiotherapist: e.target.value })}
+                                   className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-brand-light text-xs text-slate-700 font-semibold"
+                                 >
+                                   <option value="">Ninguno</option>
+                                   {physiotherapists.map(p => {
+                                     const name = p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.displayName || p.username || p.email?.split('@')[0] || 'Fisioterapeuta';
+                                     return (
+                                       <option key={p.id} value={name}>
+                                         {name}
+                                       </option>
+                                     );
+                                   })}
+                                 </select>
+                               </td>
+                               <td className="px-3 py-2 text-center">
+                                 <button 
+                                   type="button" 
+                                   onClick={() => removeSession(idx, session.sessionNumber)}
+                                   className="text-slate-400 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                                   title="Eliminar sesión de la tabla"
+                                 >
+                                   <Trash2 size={14} />
+                                 </button>
+                               </td>
+                             </tr>
+                           ))}
+                         </tbody>
+                       </table>
+                     </div>
+                   ) : (
+                     <div className="text-center py-5 border border-dashed border-slate-250 rounded-xl bg-slate-50/50">
+                       <p className="text-xs text-slate-400 font-medium">No hay atenciones o sesiones añadidas a este plan de evolución.</p>
+                       <button 
+                         type="button" 
+                         onClick={() => addSession(idx)}
+                         className="text-brand-dark hover:underline text-xs font-bold mt-1 inline-flex items-center gap-1"
+                       >
+                         ➕ Agregar primera sesión
+                       </button>
+                     </div>
+                   )}
+                 </div>
                </div>
-               <div>
-                 <label className="block text-sm font-bold text-slate-700 mb-2">Observaciones / Recomendaciones al Paciente</label>
-                 <textarea 
-                   rows={2} value={observations} onChange={e => setObservations(e.target.value)}
-                   className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all resize-none" 
-                 />
-               </div>
-             </div>
+             ))}
            </div>
-           
-           <div className="pt-6 mt-6 border-t border-slate-100 flex justify-end gap-4">
+
+           {/* Button to add another treatment plan */}
+           <div className="flex justify-center pt-2">
+             <button 
+               type="button" 
+               onClick={addTreatmentPlan}
+               className="border-dashed border-2 border-slate-350 hover:bg-slate-55 bg-white text-slate-600 gap-2 px-6 py-3.5 rounded-xl flex items-center justify-center font-bold text-xs hover:border-brand shadow-sm transition-all hover:scale-[1.01]"
+             >
+               <Plus size={16} /> Crear otro Plan de Tratamiento
+             </button>
+           </div>
+
+           {/* Action Buttons */}
+           <div className="pt-6 mt-6 border-t border-slate-100 flex justify-end gap-3 bg-white">
              <Button type="button" variant="ghost" onClick={() => navigate('/admin')}>Cancelar</Button>
              <Button type="submit" size="lg" className="gap-2 shadow-lg" disabled={loading}>
                <Save size={20} /> {loading ? 'Guardando...' : (historyId ? 'Actualizar Historia Clínica' : 'Guardar Historia Clínica')}
              </Button>
            </div>
-        </motion.div>
+         </motion.div>
       </form>
     </div>
 
@@ -556,48 +940,83 @@ export function AdminClinicalHistory() {
         </section>
 
         <section>
-          <h3 className="text-lg font-bold border-b border-slate-200 pb-2 mb-4">Plan y Tratamiento</h3>
-          <div className="space-y-4">
-            <div className="grid grid-cols-4 gap-4 mb-4">
-              {treatmentStartDate && (
-                <div>
-                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Inicio de Tratamiento</p>
-                  <p className="text-sm font-semibold">{treatmentStartDate}</p>
+          <h3 className="text-lg font-bold border-b border-slate-200 pb-2 mb-4">Planes de Tratamiento & Evoluciones</h3>
+          <div className="space-y-6">
+            {treatmentPlans.map((plan, idx) => (
+              <div key={plan.id || idx} className="p-4 border border-slate-200 rounded-xl bg-slate-50/40 break-inside-avoid">
+                <h4 className="font-bold text-slate-800 text-xs mb-3 uppercase tracking-wide">
+                  Plan de Tratamiento #{idx + 1}
+                </h4>
+
+                <div className="grid grid-cols-4 gap-4 mb-4 text-xs">
+                  {plan.treatmentStartDate && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-slate-500 mb-0.5">Inicio del Plan</p>
+                      <p className="font-semibold text-slate-800">{plan.treatmentStartDate}</p>
+                    </div>
+                  )}
+                  {plan.recommendedSessions !== '' && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-slate-500 mb-0.5">Sesiones Recomendadas</p>
+                      <p className="font-semibold text-slate-800">{plan.recommendedSessions}</p>
+                    </div>
+                  )}
+                  {plan.attendedSessionsCount !== '' && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-slate-500 mb-0.5">Sesiones Asistidas</p>
+                      <p className="font-semibold text-slate-800">{plan.attendedSessionsCount}</p>
+                    </div>
+                  )}
+                  {plan.attendedDates && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-slate-500 mb-0.5">Días de Asistencia</p>
+                      <p className="font-semibold text-slate-800 truncate">{plan.attendedDates}</p>
+                    </div>
+                  )}
                 </div>
-              )}
-              {recommendedSessions !== '' && (
-                <div>
-                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Sesiones Recomendadas</p>
-                  <p className="text-sm font-semibold">{recommendedSessions}</p>
+
+                <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase text-slate-500 mb-0.5">Plan de Tratamiento / Objetivos</p>
+                    <p className="text-slate-800 leading-relaxed whitespace-pre-wrap">{plan.treatmentPlan || 'Sin registro'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase text-slate-500 mb-0.5">Observaciones & Recomendaciones</p>
+                    <p className="text-slate-800 leading-relaxed whitespace-pre-wrap">{plan.observations || 'Sin registro'}</p>
+                  </div>
                 </div>
-              )}
-              {attendedSessionsCount !== '' && (
-                <div>
-                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Sesiones Asistidas</p>
-                  <p className="text-sm font-semibold">{attendedSessionsCount}</p>
-                </div>
-              )}
-              {attendedDates && (
-                <div>
-                  <p className="text-xs font-bold uppercase text-slate-400 mb-1">Días Asistidos</p>
-                  <p className="text-sm font-semibold">{attendedDates}</p>
-                </div>
-              )}
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase text-slate-400 mb-1">Plan de Tratamiento / Objetivos</p>
-              <p className="text-sm leading-relaxed">{treatment || 'Sin registro'}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <p className="text-xs font-bold uppercase text-slate-400 mb-1">Evolución</p>
-                <p className="text-sm leading-relaxed">{evolution || 'Sin registro'}</p>
+
+                {plan.sessions && plan.sessions.length > 0 && (
+                  <div className="mt-2 text-[11px]">
+                    <p className="text-[10px] font-bold uppercase text-slate-500 mb-2">Historial de evolución del plan</p>
+                    <table className="w-full text-left border-collapse border border-slate-300">
+                      <thead>
+                        <tr className="bg-slate-100 border-b border-slate-300 font-bold uppercase text-[9px] text-slate-600">
+                          <th className="px-2 py-1.5 border-r border-slate-300 text-center w-12">Sesión</th>
+                          <th className="px-2 py-1.5 border-r border-slate-300 w-24">Fecha</th>
+                          <th className="px-2 py-1.5 border-r border-slate-300 text-center w-16">Dolor (EVA)</th>
+                          <th className="px-2 py-1.5 border-r border-slate-300">Procedimiento realizado</th>
+                          <th className="px-2 py-1.5 border-r border-slate-300">Evolución clínica</th>
+                          <th className="px-2 py-1.5 w-32">Fisioterapeuta</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {plan.sessions.map((session, sIdx) => (
+                          <tr key={session.sessionNumber || sIdx} className="text-slate-700">
+                            <td className="px-2 py-1 border-r border-slate-200 text-center font-bold">#{session.sessionNumber}</td>
+                            <td className="px-2 py-1 border-r border-slate-200">{session.date}</td>
+                            <td className="px-2 py-1 border-r border-slate-200 text-center font-semibold">{session.painLevel}/10</td>
+                            <td className="px-2 py-1 border-r border-slate-200">{session.procedure || '-'}</td>
+                            <td className="px-2 py-1 border-r border-slate-200">{session.evolution || '-'}</td>
+                            <td className="px-2 py-1 font-medium text-slate-800">{session.physiotherapist || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-              <div>
-                <p className="text-xs font-bold uppercase text-slate-400 mb-1">Observaciones / Recomendaciones</p>
-                <p className="text-sm leading-relaxed">{observations || 'Sin registro'}</p>
-              </div>
-            </div>
+            ))}
           </div>
         </section>
 

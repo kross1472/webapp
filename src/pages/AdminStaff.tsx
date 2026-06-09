@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc, query, setDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, query, setDoc, where } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { useAuth } from '../lib/AuthContext';
 import { toast } from 'sonner';
@@ -31,11 +31,11 @@ export function AdminStaff() {
   const [creatingStaff, setCreatingStaff] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
 
-  if (role !== 'admin') {
+  if (role !== 'admin' && role !== 'receptionist') {
     return (
       <div className="p-8">
         <p className="text-red-500 font-bold">
-          Acceso denegado. Solo administradores pueden ver esta página.
+          Acceso denegado. No tienes permisos para ver esta sección.
         </p>
       </div>
     );
@@ -114,21 +114,40 @@ export function AdminStaff() {
       setCreatingStaff(true);
 
       const firebaseEmail = newStaffEmail
-        ? newStaffEmail.toLowerCase()
-        : `${newStaffUsername.toLowerCase()}@prophysical.com`;
+        ? newStaffEmail.toLowerCase().trim()
+        : `${newStaffUsername.toLowerCase().trim()}@prophysical.com`;
 
       if (!isEdit) {
         // ── CREAR NUEVO USUARIO ────────────────────────────────────────────
-        // 1. Crear en Firebase Auth usando la sesión actual del admin
-        //    Firebase Auth permite crear usuarios desde el cliente con
-        //    createUserWithEmailAndPassword — esto inicia sesión como el nuevo usuario.
-        //    Para evitar cerrar la sesión del admin, usamos una instancia secundaria.
-        //
-        //    IMPORTANTE: esto cierra la sesión actual y abre la del nuevo usuario.
-        //    La solución definitiva es usar Firebase Admin SDK en un backend.
-        //    Por ahora usamos auth directamente y luego el admin debe volver a ingresar.
+        // 1. Verificar si ya existe en Firestore con ese correo para no duplicar en DB
+        const searchSnap = await getDocs(
+          query(collection(db, 'staff_users'), where('email', '==', firebaseEmail))
+        );
 
-        let uid: string;
+        if (!searchSnap.empty) {
+          throw new Error('Ya existe un registro de personal con ese correo en la base de datos.');
+        }
+
+        // 1. Guardar primero con el username como ID temporal mientras el admin (autenticado) realiza la acción
+        const tempUsername = newStaffUsername.toLowerCase().trim();
+        await setDoc(doc(db, 'staff_users', tempUsername), {
+          name: newStaffName.trim(),
+          username: tempUsername,
+          email: firebaseEmail,
+          role: newStaffRole,
+          isPhysiotherapist: newStaffRole === 'physiotherapist' || (newStaffRole === 'admin' ? newStaffIsPhysio : false),
+          createdAt: Date.now(),
+        });
+
+        // 2. Crear en Firebase Auth usando la sesión actual del admin
+        //    Si el email ya existe en Firebase Auth (por ejemplo de un paciente o registro previo)
+        //    registraremos el documento en staff_users usando su username como ID temporal.
+        //    Cuando este usuario inicie sesión por primera vez, el AuthContext automáticamente
+        //    migrará su ID temporal en Firestore por su UID real de Firebase Auth.
+
+        let uid = tempUsername;
+        let alreadyInAuth = false;
+
         try {
           const cred = await createUserWithEmailAndPassword(
             auth,
@@ -138,30 +157,40 @@ export function AdminStaff() {
           uid = cred.user.uid;
         } catch (authError: any) {
           if (authError.code === 'auth/email-already-in-use') {
-            throw new Error('Ya existe un usuario con ese email en el sistema.');
-          }
-          if (authError.code === 'auth/invalid-email') {
+            alreadyInAuth = true;
+          } else if (authError.code === 'auth/invalid-email') {
             throw new Error('El formato del email no es válido.');
+          } else {
+            throw new Error(
+              'Error al crear el usuario en Authentication: ' + authError.message
+            );
           }
-          throw new Error(
-            'Error al crear el usuario en Authentication: ' + authError.message
-          );
         }
 
-        // 2. Guardar en Firestore con el UID como ID — SIN password
-        await setDoc(doc(db, 'staff_users', uid), {
-          name: newStaffName.trim(),
-          username: newStaffUsername.toLowerCase().trim(),
-          email: firebaseEmail,
-          role: newStaffRole,
-          isPhysiotherapist: newStaffRole === 'admin' ? newStaffIsPhysio : false,
-          createdAt: Date.now(),
-        });
+        // 3. Guardar en Firestore con el UID (ahora el nuevo usuario está logueado,
+        //    y tiene permisos gracias a la regla de migración porque el doc con su username ya existe)
+        if (!alreadyInAuth) {
+          await setDoc(doc(db, 'staff_users', uid), {
+            name: newStaffName.trim(),
+            username: tempUsername,
+            email: firebaseEmail,
+            role: newStaffRole,
+            isPhysiotherapist: newStaffRole === 'physiotherapist' || (newStaffRole === 'admin' ? newStaffIsPhysio : false),
+            createdAt: Date.now(),
+          });
+        }
 
-        toast.success('Usuario creado exitosamente');
-        toast.warning(
-          'Tu sesión fue reemplazada por la del nuevo usuario. Por favor vuelve a iniciar sesión.'
-        );
+        if (alreadyInAuth) {
+          toast.success('Personal registrado con éxito');
+          toast.info(
+            'El correo ya estaba registrado en Firebase Authentication. Se ha vinculado como personal conservando su contraseña existente.'
+          );
+        } else {
+          toast.success('Usuario creado exitosamente');
+          toast.warning(
+            'Tu sesión fue reemplazada por la del nuevo usuario. Por favor vuelve a iniciar sesión.'
+          );
+        }
       } else {
         // ── EDITAR USUARIO EXISTENTE ───────────────────────────────────────
         // Solo actualiza campos en Firestore — no toca Firebase Auth
@@ -171,7 +200,7 @@ export function AdminStaff() {
             name: newStaffName.trim(),
             username: newStaffUsername.toLowerCase().trim(),
             role: newStaffRole,
-            isPhysiotherapist: newStaffRole === 'admin' ? newStaffIsPhysio : false,
+            isPhysiotherapist: newStaffRole === 'physiotherapist' || (newStaffRole === 'admin' ? newStaffIsPhysio : false),
             updatedAt: Date.now(),
           },
           { merge: true }

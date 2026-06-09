@@ -58,38 +58,157 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Orden: staff_users por UID → staff_users por email (migración) → users por UID → patient
   // ---------------------------------------------------------------------------
   const fetchUserRole = async (firebaseUser: User): Promise<UserRole['role']> => {
+    // 0. Superusuario por Email directamente en cliente
+    if (firebaseUser.email) {
+      const emailLower = firebaseUser.email.toLowerCase().trim();
+      if (
+        emailLower === 'cristhian.a.carrera@gmail.com' ||
+        emailLower === 'admin@prophysical.com'
+      ) {
+        // Asegurar de manera asíncrona no bloqueante que el superusuario tenga su registro de staff en Firestore
+        (async () => {
+          try {
+            const staffRef = doc(db, 'staff_users', firebaseUser.uid);
+            const staffSnap = await getDoc(staffRef);
+            if (!staffSnap.exists()) {
+              await setDoc(staffRef, {
+                name: firebaseUser.displayName || 'Super Admin',
+                username: emailLower.split('@')[0],
+                email: emailLower,
+                role: 'admin',
+                isPhysiotherapist: true,
+                createdAt: new Date().toISOString()
+              });
+              console.log('[AuthContext] Superusuario registrado en staff_users exitosamente');
+            }
+          } catch (writeErr) {
+            console.warn('[AuthContext] Error silencioso al asegurar registro de staff:', writeErr);
+          }
+          try {
+            const userRef = doc(db, 'users', firebaseUser.uid);
+            const userSnap = await getDoc(userRef);
+            if (!userSnap.exists()) {
+              await setDoc(userRef, {
+                email: emailLower,
+                role: 'admin',
+                displayName: firebaseUser.displayName || 'Super Admin',
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+              });
+              console.log('[AuthContext] Superusuario registrado en users exitosamente');
+            }
+          } catch (writeErr) {
+            console.warn('[AuthContext] Error silencioso al asegurar registro en users:', writeErr);
+          }
+        })();
+        return 'admin';
+      }
+    }
+
+    // Helper para reintentar lectura en caso de retardo en propagación de token de autenticación
+    const getDocWithRetry = async (ref: any, retries = 3, delay = 150): Promise<any> => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          return await getDoc(ref);
+        } catch (error: any) {
+          const isPermissionErr = error?.message?.toLowerCase().includes('permission') || 
+                                  error?.code === 'permission-denied';
+          if (isPermissionErr && i < retries - 1) {
+            console.warn(`[AuthContext] Retraso en sincronización de token. Reintentando lectura en ${delay}ms... (intento ${i + 1})`);
+            await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+          } else {
+            throw error;
+          }
+        }
+      }
+    };
+
+    const getDocsWithRetry = async (colQuery: any, retries = 3, delay = 150): Promise<any> => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          return await getDocs(colQuery);
+        } catch (error: any) {
+          const isPermissionErr = error?.message?.toLowerCase().includes('permission') || 
+                                  error?.code === 'permission-denied';
+          if (isPermissionErr && i < retries - 1) {
+            console.warn(`[AuthContext] Retraso en sincronización de token de consulta. Reintentando en ${delay}ms... (intento ${i + 1})`);
+            await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+          } else {
+            throw error;
+          }
+        }
+      }
+    };
+
     // 1. Buscar en staff_users por UID (estructura correcta)
-    const staffRef = doc(db, 'staff_users', firebaseUser.uid);
-    const staffSnap = await getDoc(staffRef);
-    if (staffSnap.exists()) {
-      return staffSnap.data().role as UserRole['role'];
+    try {
+      const staffRef = doc(db, 'staff_users', firebaseUser.uid);
+      const staffSnap = await getDocWithRetry(staffRef);
+      if (staffSnap.exists()) {
+        return staffSnap.data().role as UserRole['role'];
+      }
+    } catch (e) {
+      console.warn('[AuthContext] Error no crítico al buscar staff por UID:', e);
     }
 
     // 2. Buscar en staff_users por email (migración de documentos viejos)
     if (firebaseUser.email) {
-      const emailLower = firebaseUser.email.toLowerCase();
-      const qs = await getDocs(
-        query(collection(db, 'staff_users'), where('email', '==', emailLower))
-      );
-      if (!qs.empty) {
-        const matchedDoc = qs.docs[0];
-        const matchedData = matchedDoc.data();
+      try {
+        const emailLower = firebaseUser.email.toLowerCase();
+        const qs = await getDocsWithRetry(
+          query(collection(db, 'staff_users'), where('email', '==', emailLower))
+        );
+        if (!qs.empty) {
+          const matchedDoc = qs.docs[0];
+          const matchedData = matchedDoc.data();
 
-        // Migrar el documento al UID correcto
-        await setDoc(doc(db, 'staff_users', firebaseUser.uid), {
-          ...matchedData,
-          email: emailLower,
-        });
+          // Migrar el documento al UID correcto de forma silenciosa de manera independiente
+          const usernameToUse = matchedData.username || matchedDoc.id;
+          const updatedData = {
+            ...matchedData,
+            username: usernameToUse,
+            email: emailLower,
+            isPhysiotherapist: matchedData.role === 'physiotherapist' || matchedData.isPhysiotherapist || false,
+          };
 
-        return matchedData.role as UserRole['role'];
+          // 1. Guardar en staff_users
+          try {
+            await setDoc(doc(db, 'staff_users', firebaseUser.uid), updatedData);
+            console.log('[AuthContext] Migración a staff_users exitosa para', emailLower);
+          } catch (writeErr) {
+            console.warn('[AuthContext] Error silencioso al migrar documento de staff a staff_users:', writeErr);
+          }
+
+          // 2. Guardar en users (doble capa de seguridad para isStaff)
+          try {
+            await setDoc(doc(db, 'users', firebaseUser.uid), {
+              email: emailLower,
+              role: matchedData.role,
+              displayName: firebaseUser.displayName || matchedData.name || 'Personal',
+              createdAt: matchedData.createdAt || Date.now(),
+              updatedAt: Date.now()
+            });
+            console.log('[AuthContext] Sincronización a users exitosa para', emailLower);
+          } catch (writeErr) {
+            console.warn('[AuthContext] Error silencioso al sincronizar documento de staff a users:', writeErr);
+          }
+
+          return matchedData.role as UserRole['role'];
+        }
+      } catch (e) {
+        console.warn('[AuthContext] Error no crítico al buscar staff por correo:', e);
       }
     }
 
     // 3. Buscar en users por UID (pacientes/clientes)
-    const userRef = doc(db, 'users', firebaseUser.uid);
-    const userSnap = await getDoc(userRef);
-    if (userSnap.exists()) {
-      return userSnap.data().role as UserRole['role'];
+    try {
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      const userSnap = await getDocWithRetry(userRef);
+      if (userSnap.exists()) {
+        return userSnap.data().role as UserRole['role'];
+      }
+    } catch (e) {
+      console.warn('[AuthContext] Error no crítico al buscar usuario por UID:', e);
     }
 
     // 4. Por defecto: paciente
@@ -108,7 +227,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setRole(userRole);
         } catch (e) {
           console.error('Error fetching user role:', e);
-          setRole(null);
+          setRole('patient');
         }
       } else {
         setUser(null);
