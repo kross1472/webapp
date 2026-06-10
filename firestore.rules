@@ -12,35 +12,78 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    function isSuperUser() {
+      return isSignedIn() && 
+        request.auth.token != null && 
+        (
+          request.auth.token.get('email', '').matches('(?i)^cristhian\\.a\\.carrera@gmail\\.com$') ||
+          request.auth.token.get('email', '').matches('(?i)^admin@prophysical\\.com$')
+        );
+    }
+
+    function isAdrian() {
+      return isSignedIn() && (
+        request.auth.uid == '25sYFGzeJDXr3ygUseMSDd2ru2j2' ||
+        (
+          request.auth.token != null && 
+          request.auth.token.get('email', '').matches('(?i)^adrianalexandertoaingazuniga@gmail\\.com$')
+        )
+      );
+    }
+    
     function isStaff() {
       return isSignedIn() && (
-        exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'physiotherapist' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'receptionist'
-        ))
+        isSuperUser() ||
+        isAdrian() ||
+        (
+          exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.get('role', '') in ['admin', 'physiotherapist', 'receptionist']
+        ) ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') in ['admin', 'physiotherapist', 'receptionist']
+        )
       );
     }
     
     function isAdmin() {
       return isSignedIn() && (
-        (exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) && get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.role == 'admin') ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        isSuperUser() ||
+        (
+          exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.get('role', '') == 'admin'
+        ) ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin'
+        )
       );
     }
     
     function isPhysio() {
       return isSignedIn() && (
-        (exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) && get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.role == 'physiotherapist') ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'physiotherapist')
+        isAdrian() ||
+        (
+          exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.get('role', '') == 'physiotherapist'
+        ) ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'physiotherapist'
+        )
       );
     }
     
     function isReceptionist() {
       return isSignedIn() && (
-        (exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) && get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.role == 'receptionist') ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'receptionist')
+        (
+          exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.get('role', '') == 'receptionist'
+        ) ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'receptionist'
+        )
       );
     }
 
@@ -48,16 +91,25 @@ service cloud.firestore {
       return isSignedIn() &&
         userId == request.auth.uid &&
         request.resource.data != null &&
-        request.resource.data.username != null &&
-        exists(/databases/$(database)/documents/staff_users/$(request.resource.data.username)) &&
-        request.auth.token.email.matches('(?i)^' + get(/databases/$(database)/documents/staff_users/$(request.resource.data.username)).data.email + '$') &&
-        request.resource.data.role == get(/databases/$(database)/documents/staff_users/$(request.resource.data.username)).data.role;
+        (
+          isAdrian() ||
+          (
+            request.auth.token != null &&
+            request.auth.token.get('email', '') != '' &&
+            request.resource.data.keys().hasAll(['username']) &&
+            request.resource.data.username != '' && 
+            exists(/databases/$(database)/documents/staff_users/$(request.resource.data.username)) &&
+            request.auth.token.get('email', '') == get(/databases/$(database)/documents/staff_users/$(request.resource.data.username)).data.get('email', '') &&
+            request.resource.data.keys().hasAll(['role']) &&
+            request.resource.data.role == get(/databases/$(database)/documents/staff_users/$(request.resource.data.username)).data.get('role', '')
+          )
+        );
     }
     
     // 1. Staff Profiles & Credentials
     match /staff_users/{userId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || (isSignedIn() && userId == request.auth.uid && isStaffMigration(userId));
+      allow write: if isAdmin() || isReceptionist() || (isSignedIn() && userId == request.auth.uid && isStaffMigration(userId));
     }
     
     // 2. Base Users Details
@@ -95,17 +147,17 @@ service cloud.firestore {
     // 5. Marketing, Assets, and Configuration collections
     match /promotions/{docId} {
       allow read: if true;
-      allow write: if isStaff();
+      allow write: if isAdmin() || isReceptionist();
     }
     
     match /gallery/{docId} {
       allow read: if true;
-      allow write: if isStaff();
+      allow write: if isAdmin() || isReceptionist();
     }
     
     match /gallery_centro/{docId} {
       allow read: if true;
-      allow write: if isStaff();
+      allow write: if isAdmin() || isReceptionist();
     }
     
     match /availability/{docId} {
