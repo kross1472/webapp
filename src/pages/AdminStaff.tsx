@@ -1,20 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, deleteDoc, doc, query, setDoc, where } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { useAuth } from '../lib/AuthContext';
 import { toast } from 'sonner';
-import { Trash2, Loader2, Upload, Users, UserPlus, Pencil, X } from 'lucide-react';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { Trash2, Loader2, Upload, Users, UserPlus, Pencil, X, AlertCircle } from 'lucide-react';
 
 // =============================================================================
 // AdminStaff — Gestión de usuarios del personal
 //
-// Flujo de creación:
-//   1. Verifica que el email no exista ya en Firestore
-//   2. Crea el usuario en Firebase Authentication → obtiene el UID
-//   3. Guarda el documento en Firestore con ese UID como ID
-//   4. Nunca guarda el password en Firestore
-//   5. Nunca crea documentos temporales con username como ID
+// Flujo de creación (manual, sin Cloud Functions):
+//   1. Admin crea el usuario en Firebase Console → Authentication → Agregar usuario
+//   2. Copia el UID generado
+//   3. Rellena el formulario aquí con ese UID
+//   4. El sistema guarda el documento en Firestore con ese UID como ID
+//   5. El usuario ya puede ingresar con su username y password
 // =============================================================================
 
 export function AdminStaff() {
@@ -24,16 +23,15 @@ export function AdminStaff() {
   const [error, setError] = useState<string | null>(null);
 
   // Formulario
+  const [newStaffUid, setNewStaffUid] = useState('');
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffUsername, setNewStaffUsername] = useState('');
   const [newStaffEmail, setNewStaffEmail] = useState('');
-  const [newStaffPassword, setNewStaffPassword] = useState('');
   const [newStaffRole, setNewStaffRole] = useState<'physiotherapist' | 'receptionist' | 'admin'>('physiotherapist');
   const [newStaffIsPhysio, setNewStaffIsPhysio] = useState(false);
   const [creatingStaff, setCreatingStaff] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
 
-  // Solo admins pueden gestionar staff
   if (role !== 'admin') {
     return (
       <div className="p-8">
@@ -70,13 +68,11 @@ export function AdminStaff() {
 
   // ---------------------------------------------------------------------------
   // Eliminar usuario de Firestore
-  // NOTA: No elimina de Firebase Auth — hacerlo requiere Admin SDK.
-  // Elimínalo manualmente desde Firebase Console → Authentication.
   // ---------------------------------------------------------------------------
-  const handleDelete = async (id: string, type: 'staff_users') => {
+  const handleDelete = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.')) return;
     try {
-      await deleteDoc(doc(db, type, id));
+      await deleteDoc(doc(db, 'staff_users', id));
       toast.success('Usuario eliminado de la base de datos');
       toast.warning('Recuerda eliminarlo también en Firebase Console → Authentication.');
       fetchData();
@@ -93,23 +89,13 @@ export function AdminStaff() {
     e.preventDefault();
     const isEdit = !!editingStaffId;
 
-    if (!newStaffName || !newStaffUsername) {
-      toast.error('Por favor completa los campos obligatorios: Nombre y Usuario');
+    if (!newStaffName || !newStaffUsername || !newStaffEmail) {
+      toast.error('Por favor completa todos los campos obligatorios');
       return;
     }
 
-    if (!isEdit && !newStaffPassword) {
-      toast.error('La contraseña es obligatoria para nuevos usuarios');
-      return;
-    }
-
-    if (newStaffPassword && newStaffPassword.length < 6) {
-      toast.error('La contraseña debe tener al menos 6 caracteres');
-      return;
-    }
-
-    if (!isEdit && !newStaffEmail) {
-      toast.error('El email es obligatorio para registrar el usuario en el sistema');
+    if (!isEdit && !newStaffUid) {
+      toast.error('El UID es obligatorio. Créalo primero en Firebase Console → Authentication.');
       return;
     }
 
@@ -117,11 +103,10 @@ export function AdminStaff() {
       setCreatingStaff(true);
 
       const firebaseEmail = newStaffEmail.toLowerCase().trim();
+      const docId = isEdit ? editingStaffId! : newStaffUid.trim();
 
       if (!isEdit) {
-        // ── CREAR NUEVO USUARIO ──────────────────────────────────────────────
-
-        // 1. Verificar que el email no exista ya en Firestore
+        // Verificar que el UID no exista ya en Firestore
         const existingSnap = await getDocs(
           query(collection(db, 'staff_users'), where('email', '==', firebaseEmail))
         );
@@ -129,27 +114,7 @@ export function AdminStaff() {
           throw new Error('Ya existe un usuario con ese email en la base de datos.');
         }
 
-        // 2. Crear en Firebase Auth → obtener UID
-        let uid: string;
-        try {
-          const cred = await createUserWithEmailAndPassword(
-            auth,
-            firebaseEmail,
-            newStaffPassword
-          );
-          uid = cred.user.uid;
-        } catch (authError: any) {
-          if (authError.code === 'auth/email-already-in-use') {
-            throw new Error('Ya existe un usuario con ese email en el sistema de autenticación.');
-          }
-          if (authError.code === 'auth/invalid-email') {
-            throw new Error('El formato del email no es válido.');
-          }
-          throw new Error('Error al crear el usuario: ' + authError.message);
-        }
-
-        // 3. Guardar en Firestore con el UID como ID — SIN password, UN SOLO documento
-        await setDoc(doc(db, 'staff_users', uid), {
+        await setDoc(doc(db, 'staff_users', docId), {
           name: newStaffName.trim(),
           username: newStaffUsername.toLowerCase().trim(),
           email: firebaseEmail,
@@ -160,16 +125,12 @@ export function AdminStaff() {
           createdAt: Date.now(),
         });
 
-        toast.success('Usuario creado exitosamente');
-        toast.warning(
-          'Tu sesión fue reemplazada por la del nuevo usuario. Por favor vuelve a iniciar sesión.'
-        );
+        toast.success('Usuario registrado exitosamente en la base de datos');
 
       } else {
-        // ── EDITAR USUARIO EXISTENTE ─────────────────────────────────────────
-        // Solo actualiza campos en Firestore — no toca Firebase Auth
+        // Editar — solo actualiza campos en Firestore
         await setDoc(
-          doc(db, 'staff_users', editingStaffId),
+          doc(db, 'staff_users', docId),
           {
             name: newStaffName.trim(),
             username: newStaffUsername.toLowerCase().trim(),
@@ -200,10 +161,10 @@ export function AdminStaff() {
   // ---------------------------------------------------------------------------
   const startEditStaff = (user: any) => {
     setEditingStaffId(user.id);
+    setNewStaffUid('');
     setNewStaffName(user.name || '');
     setNewStaffUsername(user.username || '');
     setNewStaffEmail(user.email || '');
-    setNewStaffPassword('');
     setNewStaffRole(user.role || 'physiotherapist');
     setNewStaffIsPhysio(user.isPhysiotherapist || false);
 
@@ -213,10 +174,10 @@ export function AdminStaff() {
 
   const cancelEditStaff = () => {
     setEditingStaffId(null);
+    setNewStaffUid('');
     setNewStaffName('');
     setNewStaffUsername('');
     setNewStaffEmail('');
-    setNewStaffPassword('');
     setNewStaffRole('physiotherapist');
     setNewStaffIsPhysio(false);
   };
@@ -235,23 +196,56 @@ export function AdminStaff() {
   return (
     <div className="max-w-5xl">
       <div id="staff-section" className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-        <div className="flex items-center justify-between mb-6">
+
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <Users className="text-purple-500" size={24} /> Personal (Fisioterapeutas / Recepcionistas)
+              <Users className="text-purple-500" size={24} /> Personal
             </h2>
             <p className="text-sm text-slate-500 mt-1">
-              Crea y administra usuarios para que puedan iniciar sesión en el panel administrativo.
+              Administra los usuarios que pueden ingresar al panel.
             </p>
           </div>
         </div>
+
+        {/* Instrucciones para crear usuario */}
+        {!editingStaffId && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex gap-3">
+            <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={18} />
+            <div className="text-sm text-amber-800">
+              <p className="font-bold mb-1">Antes de registrar un nuevo usuario:</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Ve a <strong>Firebase Console → Authentication → Usuarios → Agregar usuario</strong></li>
+                <li>Ingresa el email y contraseña del nuevo empleado</li>
+                <li>Copia el <strong>UID</strong> que aparece en la lista</li>
+                <li>Pégalo en el campo <strong>UID</strong> del formulario de abajo</li>
+              </ol>
+            </div>
+          </div>
+        )}
 
         {/* Formulario */}
         <form
           onSubmit={handleSaveStaff}
           className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-8 grid md:grid-cols-2 lg:grid-cols-12 gap-4 items-end"
         >
-          <div className="lg:col-span-3">
+          {/* UID — solo al crear */}
+          {!editingStaffId && (
+            <div className="lg:col-span-3">
+              <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase">
+                UID de Firebase *
+              </label>
+              <input
+                type="text"
+                value={newStaffUid}
+                onChange={e => setNewStaffUid(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg p-2 focus:ring-brand-light focus:border-brand-light font-mono text-xs"
+                placeholder="Ej. xK9mP2qRtY..."
+              />
+            </div>
+          )}
+
+          <div className={editingStaffId ? "lg:col-span-3" : "lg:col-span-2"}>
             <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase">
               Nombre Completo *
             </label>
@@ -263,6 +257,7 @@ export function AdminStaff() {
               placeholder="Ej. Juan Pérez"
             />
           </div>
+
           <div className="lg:col-span-2">
             <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase">
               Usuario *
@@ -277,9 +272,10 @@ export function AdminStaff() {
               title={editingStaffId ? 'No se puede cambiar el usuario al editar' : ''}
             />
           </div>
+
           <div className="lg:col-span-2">
             <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase">
-              {editingStaffId ? 'Email' : 'Email *'}
+              Email *
             </label>
             <input
               type="email"
@@ -291,19 +287,7 @@ export function AdminStaff() {
               title={editingStaffId ? 'No se puede cambiar el email al editar' : ''}
             />
           </div>
-          <div className="lg:col-span-2">
-            <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase">
-              {editingStaffId ? 'Contraseña (no editable)' : 'Contraseña *'}
-            </label>
-            <input
-              type="password"
-              value={newStaffPassword}
-              onChange={e => setNewStaffPassword(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg p-2 focus:ring-brand-light focus:border-brand-light disabled:bg-slate-100 disabled:cursor-not-allowed"
-              placeholder={editingStaffId ? 'Usar restablecimiento' : '••••••••'}
-              disabled={!!editingStaffId}
-            />
-          </div>
+
           <div className="lg:col-span-2">
             <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase">Rol</label>
             <select
@@ -337,6 +321,7 @@ export function AdminStaff() {
               </div>
             )}
           </div>
+
           <div className="lg:col-span-1 flex gap-2 w-full h-[42px]">
             <button
               disabled={creatingStaff}
@@ -400,15 +385,13 @@ export function AdminStaff() {
                     </td>
                     <td className="py-3 whitespace-nowrap">
                       <div className="flex flex-col gap-1 items-start">
-                        <span
-                          className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            user.role === 'admin'
-                              ? 'bg-purple-100 text-purple-800'
-                              : user.role === 'physiotherapist'
-                              ? 'bg-cyan-100 text-cyan-800'
-                              : 'bg-orange-100 text-orange-800'
-                          }`}
-                        >
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          user.role === 'admin'
+                            ? 'bg-purple-100 text-purple-800'
+                            : user.role === 'physiotherapist'
+                            ? 'bg-cyan-100 text-cyan-800'
+                            : 'bg-orange-100 text-orange-800'
+                        }`}>
                           {user.role}
                         </span>
                         {user.isPhysiotherapist && user.role !== 'physiotherapist' && (
@@ -427,7 +410,7 @@ export function AdminStaff() {
                           <Pencil size={18} />
                         </button>
                         <button
-                          onClick={() => handleDelete(user.id, 'staff_users')}
+                          onClick={() => handleDelete(user.id)}
                           className="text-red-500 hover:text-white hover:bg-red-500 p-2 rounded-lg transition-colors"
                         >
                           <Trash2 size={18} />
