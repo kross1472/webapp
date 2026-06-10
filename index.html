@@ -4,11 +4,85 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://*-firebasestorage.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:;" />
-    <title>ProPhysical - Clínica de Fisioterapia</title>
+
+    <!-- ================================================================
+         SEO BÁSICO
+         ================================================================ -->
+    <title>ProPhysical - Clínica de Fisioterapia en Puyo, Pastaza</title>
+    <meta name="description" content="Clínica de fisioterapia en Puyo, Pastaza. Rehabilitación física, terapias especializadas y atención personalizada. Agenda tu cita en ProPhysical." />
+    <meta name="keywords" content="fisioterapia Puyo, fisioterapia Pastaza, rehabilitación física Puyo, clínica de fisioterapia, terapia física Ecuador, ProPhysical" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://www.prophysicalpuyo.com/" />
+
+    <!-- ================================================================
+         OPEN GRAPH (Facebook, WhatsApp, LinkedIn)
+         ================================================================ -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="ProPhysical - Clínica de Fisioterapia en Puyo" />
+    <meta property="og:description" content="Rehabilitación física, terapias especializadas y atención personalizada en Puyo, Pastaza. Agenda tu cita." />
+    <meta property="og:url" content="https://www.prophysicalpuyo.com/" />
+    <meta property="og:image" content="https://www.prophysicalpuyo.com/logo.jpeg" />
+    <meta property="og:locale" content="es_EC" />
+    <meta property="og:site_name" content="ProPhysical" />
+
+    <!-- ================================================================
+         TWITTER CARD
+         ================================================================ -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ProPhysical - Clínica de Fisioterapia en Puyo" />
+    <meta name="twitter:description" content="Rehabilitación física, terapias especializadas y atención personalizada en Puyo, Pastaza." />
+    <meta name="twitter:image" content="https://www.prophysicalpuyo.com/logo.jpeg" />
+
+    <!-- ================================================================
+         SCHEMA.ORG — MedicalClinic / PhysicalTherapy
+         Ayuda a Google, Maps y asistentes de IA a entender el negocio
+         ================================================================ -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "PhysicalTherapy",
+      "name": "ProPhysical",
+      "image": "https://www.prophysicalpuyo.com/logo.jpeg",
+      "url": "https://www.prophysicalpuyo.com/",
+      "telephone": "+593983558404",
+      "priceRange": "$$",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Calle Curaray y Río Bobonaza",
+        "addressLocality": "Puyo",
+        "addressRegion": "Pastaza",
+        "postalCode": "160150",
+        "addressCountry": "EC"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": "-1.4924",
+        "longitude": "-77.9978"
+      },
+      "openingHoursSpecification": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          "opens": "08:00",
+          "closes": "21:00"
+        },
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": ["Saturday", "Sunday"],
+          "opens": "00:00",
+          "closes": "00:00",
+          "description": "Atención con cita previa"
+        }
+      ],
+      "sameAs": [
+        "https://www.instagram.com/prophysical_puyo/",
+        "https://www.facebook.com/prophysicalpuyo/"
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
