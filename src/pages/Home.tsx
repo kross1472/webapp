@@ -43,12 +43,12 @@ export function Home() {
   }, []);
 
   const specialties = [
-    { title: "Geriátrica", desc: "Recuperación de movilidad en adultos mayores" },
-    { title: "Pediátrica", desc: "Desarrollo y atención motriz infantil" },
-    { title: "Ortopédica", desc: "Tratamiento post-operatorio y lesiones" },
-    { title: "Neurológica", desc: "Rehabilitación de sistema nervioso" },
-    { title: "Traumatológica", desc: "Lesiones, fracturas y esguinces" },
-    { title: "Deportiva", desc: "Recuperación y rendimiento para atletas" },
+    { title: "Geriátrica", desc: "Artrosis, osteoporosis, problemas de equilibrio, debilidad muscular y alteraciones de la marcha en adultos mayores." },
+    { title: "Pediátrica", desc: "Retrasos del desarrollo motor, tortícolis, alteraciones posturales y trastornos neurológicos infantiles." },
+    { title: "Ortopédica", desc: "Dolor articular, lesiones de hombro, rodilla y columna, así como rehabilitación postquirúrgica." },
+    { title: "Neurológica", desc: "Accidente cerebrovascular (ACV), Parkinson, parálisis facial, neuropatías y lesiones del sistema nervioso." },
+    { title: "Traumatológica", desc: "Fracturas, esguinces, luxaciones, lesiones musculares y recuperación posterior a traumatismos." },
+    { title: "Deportiva", desc: "Lesiones musculares, tendinitis, esguinces, sobrecargas y recuperación para el retorno seguro al deporte." },
   ];
 
   const packages = [
