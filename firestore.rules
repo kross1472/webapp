@@ -1,172 +1,152 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Default deny catch-all
+
+    // -------------------------------------------------------------------------
+    // DENY-ALL GLOBAL
+    // -------------------------------------------------------------------------
     match /{document=**} {
       allow read, write: if false;
     }
-    
-    // Global helper functions
+
+    // -------------------------------------------------------------------------
+    // HELPERS
+    // -------------------------------------------------------------------------
+
     function isSignedIn() {
       return request.auth != null;
     }
-    
-    function isSuperUser() {
-      return isSignedIn() && 
-        request.auth.token != null && 
-        (
-          request.auth.token.get('email', '').matches('(?i)^cristhian\\.a\\.carrera@gmail\\.com$') ||
-          request.auth.token.get('email', '').matches('(?i)^admin@prophysical\\.com$')
-        );
-    }
 
-    function isAdrian() {
-      return isSignedIn() && (
-        request.auth.uid == '25sYFGzeJDXr3ygUseMSDd2ru2j2' ||
-        (
-          request.auth.token != null && 
-          request.auth.token.get('email', '').matches('(?i)^adrianalexandertoaingazuniga@gmail\\.com$')
-        )
-      );
-    }
-    
     function isStaff() {
       return isSignedIn() && (
-        isSuperUser() ||
-        isAdrian() ||
-        (
-          exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.get('role', '') in ['admin', 'physiotherapist', 'receptionist']
-        ) ||
-        (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') in ['admin', 'physiotherapist', 'receptionist']
-        )
-      );
-    }
-    
-    function isAdmin() {
-      return isSignedIn() && (
-        isSuperUser() ||
-        (
-          exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.get('role', '') == 'admin'
-        ) ||
-        (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin'
-        )
-      );
-    }
-    
-    function isPhysio() {
-      return isSignedIn() && (
-        isAdrian() ||
-        (
-          exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.get('role', '') == 'physiotherapist'
-        ) ||
-        (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'physiotherapist'
-        )
-      );
-    }
-    
-    function isReceptionist() {
-      return isSignedIn() && (
-        (
-          exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.get('role', '') == 'receptionist'
-        ) ||
-        (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'receptionist'
-        )
+        (exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.get('role', '')
+            in ['admin', 'physiotherapist', 'receptionist'])
+        ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '')
+            in ['admin', 'physiotherapist', 'receptionist'])
       );
     }
 
-    function isStaffMigration(userId) {
-      return isSignedIn() &&
-        userId == request.auth.uid &&
-        request.resource.data != null &&
-        (
-          isAdrian() ||
-          (
-            request.auth.token != null &&
-            request.auth.token.get('email', '') != '' &&
-            request.resource.data.keys().hasAll(['username']) &&
-            request.resource.data.username != '' && 
-            exists(/databases/$(database)/documents/staff_users/$(request.resource.data.username)) &&
-            request.auth.token.get('email', '') == get(/databases/$(database)/documents/staff_users/$(request.resource.data.username)).data.get('email', '') &&
-            request.resource.data.keys().hasAll(['role']) &&
-            request.resource.data.role == get(/databases/$(database)/documents/staff_users/$(request.resource.data.username)).data.get('role', '')
-          )
-        );
+    function isAdmin() {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.get('role', '') == 'admin')
+        ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin')
+      );
     }
-    
-    // 1. Staff Profiles & Credentials
+
+    function isPhysio() {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.get('role', '') == 'physiotherapist')
+        ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'physiotherapist')
+      );
+    }
+
+    function isReceptionist() {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/staff_users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/staff_users/$(request.auth.uid)).data.get('role', '') == 'receptionist')
+        ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'receptionist')
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // 1. STAFF USERS
+    // Solo admins pueden crear, editar y eliminar staff
+    // Cualquier usuario autenticado puede leer (para buscar fisios disponibles etc)
+    // -------------------------------------------------------------------------
     match /staff_users/{userId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || isReceptionist() || (isSignedIn() && userId == request.auth.uid && isStaffMigration(userId));
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
-    
-    // 2. Base Users Details
+
+    // -------------------------------------------------------------------------
+    // 2. USERS (pacientes / clientes)
+    // Solo admin puede crear y eliminar
+    // El propio usuario puede editar su documento EXCEPTO el campo role
+    // -------------------------------------------------------------------------
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow read: if isSignedIn() && request.auth.uid == userId || isStaff();
+      allow create: if isAdmin();
+      allow update: if isAdmin() ||
+        (isSignedIn() && request.auth.uid == userId &&
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']));
+      allow delete: if isAdmin();
     }
-    
-    // 3. Patients Records
+
+    // -------------------------------------------------------------------------
+    // 3. PACIENTES E HISTORIAS CLÍNICAS
+    // Todo el staff puede gestionar pacientes
+    // Historias clínicas solo admin y fisioterapeuta
+    // -------------------------------------------------------------------------
     match /patients/{patientId} {
-      // All clinic staff can view patient directory/demographics
       allow read, write: if isStaff();
-      
-      // Clinical histories are highly personal: restricted to medical personnel
+
       match /clinical_histories/{historyId} {
         allow read, write: if isAdmin() || isPhysio();
       }
     }
-    
-    // 4. Appointments Scheduler
+
+    // -------------------------------------------------------------------------
+    // 4. CITAS
+    // Cualquiera puede ver disponibilidad y crear citas
+    // Solo staff puede modificar o eliminar
+    // Detalles de cita (PII) solo staff puede leer
+    // -------------------------------------------------------------------------
     match /appointments/{appointmentId} {
-      // Anyone can see available times and request booking
       allow read, create: if true;
-      // Modifying or canceling appointments requires staff permission
       allow update, delete: if isStaff();
-      
+
       match /details/{detailId} {
-        // Anyone can create booking details during request creation
         allow create: if true;
-        // Only staff can read, update, or delete appointment details
         allow read, update, delete: if isStaff();
       }
     }
-    
-    // 5. Marketing, Assets, and Configuration collections
+
+    // -------------------------------------------------------------------------
+    // 5. CONTENIDO PÚBLICO
+    // Admins y recepcionistas pueden administrar
+    // -------------------------------------------------------------------------
     match /promotions/{docId} {
       allow read: if true;
       allow write: if isAdmin() || isReceptionist();
     }
-    
+
     match /gallery/{docId} {
       allow read: if true;
       allow write: if isAdmin() || isReceptionist();
     }
-    
+
     match /gallery_centro/{docId} {
       allow read: if true;
       allow write: if isAdmin() || isReceptionist();
     }
-    
+
     match /availability/{docId} {
       allow read: if true;
       allow write: if isStaff();
     }
-    
+
+    // -------------------------------------------------------------------------
+    // 6. CORREOS / CONTACTO
+    // Público puede enviar con validación mínima anti-spam
+    // Solo staff puede leer, modificar o eliminar
+    // -------------------------------------------------------------------------
     match /mail/{docId} {
-      allow create: if true;
+      allow create: if request.resource.data.keys().hasAll(['message']) &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() <= 2000;
       allow read, update, delete: if isStaff();
     }
   }
