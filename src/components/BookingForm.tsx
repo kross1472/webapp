@@ -212,7 +212,7 @@ export function BookingForm() {
            <div>
              <label className="block text-sm font-bold text-slate-700 mb-2">Fecha Preferida</label>
              <input 
-               type="date" required min={new Date().toISOString().split('T')[0]}
+               type="date" required min={(role === 'admin' || role === 'receptionist' || role === 'physiotherapist') ? undefined : new Date().toISOString().split('T')[0]}
                value={date} onChange={(e) => setDate(e.target.value)}
                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light focus:ring-2 focus:ring-brand-light/20 transition-all font-medium text-slate-700" 
              />
