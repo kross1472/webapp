@@ -330,6 +330,8 @@ export function AdminClinicalHistory() {
       await setDoc(patientRef, {
         firstName: patientName.split(' ')[0] || '',
         lastName: patientName.split(' ').slice(1).join(' ') || '',
+        phone: phone || '',
+        email: email || '',
         createdAt: Date.now()
       }, { merge: true });
 
