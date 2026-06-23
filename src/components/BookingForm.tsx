@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { db } from '../lib/firebase';
 import { collection, doc, writeBatch, query, where, getDocs, getCountFromServer } from 'firebase/firestore';
 import { Button } from '../components/ui/Button';
@@ -11,16 +11,55 @@ export function BookingForm() {
   const [service, setService] = useState('Fisioterapia y Rehabilitacion');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   
   const { role } = useAuth();
   const [physiotherapists, setPhysiotherapists] = useState<any[]>([]);
   const [selectedPhysioId, setSelectedPhysioId] = useState('');
+  const [patients, setPatients] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [successId, setSuccessId] = useState('');
   const [unavailableHours, setUnavailableHours] = useState<string[]>([]);
 
   const availableHours = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
+
+  React.useEffect(() => {
+    if (role === 'admin' || role === 'receptionist' || role === 'physiotherapist') {
+      const fetchPatients = async () => {
+        try {
+          const snap = await getDocs(collection(db, 'patients'));
+          const pts = snap.docs.map(d => ({
+            id: d.id,
+            ...d.data()
+          }));
+          setPatients(pts);
+        } catch (e) {
+          console.warn("Error fetching patients list in BookingForm:", e);
+        }
+      };
+      fetchPatients();
+    }
+  }, [role]);
+
+  const filteredPatients = useMemo(() => {
+    if (!name.trim()) return [];
+    const search = name.toLowerCase();
+    return patients.filter(p => {
+      const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
+      const phoneMatch = (p.phone || '').toLowerCase().includes(search);
+      return fullName.includes(search) || phoneMatch;
+    });
+  }, [patients, name]);
+
+  const matchedPatient = useMemo(() => {
+    if (!name.trim()) return null;
+    return patients.find(p => {
+      const fullName = `${p.firstName || ''} ${p.lastName || ''}`.trim().toLowerCase();
+      return fullName === name.trim().toLowerCase();
+    });
+  }, [patients, name]);
 
   React.useEffect(() => {
     if (role === 'admin' || role === 'receptionist' || role === 'physiotherapist') {
@@ -132,6 +171,7 @@ export function BookingForm() {
       batch.set(detailsRef, {
         patientName: name,
         patientPhone: phone,
+        patientEmail: email || '',
         service: service
       });
 
@@ -169,7 +209,7 @@ export function BookingForm() {
          <div className="mt-8">
            <Button variant="ghost" onClick={() => {
              setSuccessId('');
-             setDate(''); setTime(''); setName(''); setPhone(''); setSelectedPhysioId('');
+             setDate(''); setTime(''); setName(''); setPhone(''); setEmail(''); setSelectedPhysioId('');
            }}>Agendar otra cita</Button>
          </div>
       </div>
@@ -242,14 +282,53 @@ export function BookingForm() {
         </div>
 
         <div className="space-y-6">
-           <div>
-             <label className="block text-sm font-bold text-slate-700 mb-2">Nombre Completo</label>
-             <input 
-               type="text" required placeholder="Ej. Juan Pérez"
-               value={name} onChange={(e) => setName(e.target.value)}
-               className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light focus:ring-2 focus:ring-brand-light/20 transition-all font-medium text-slate-700" 
-             />
-           </div>
+            <div className="relative">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-bold text-slate-700">Nombre Completo</label>
+                {(role === 'admin' || role === 'receptionist' || role === 'physiotherapist') && matchedPatient && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full animate-fade-in">
+                    ✓ Registrado en BD
+                  </span>
+                )}
+              </div>
+              <input 
+                type="text" required placeholder="Ej. Juan Pérez"
+                value={name} 
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light focus:ring-2 focus:ring-brand-light/20 transition-all font-medium text-slate-700" 
+              />
+              
+              {(role === 'admin' || role === 'receptionist' || role === 'physiotherapist') && showSuggestions && filteredPatients.length > 0 && (
+                <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto z-50 divide-y divide-slate-100">
+                  {filteredPatients.map(p => {
+                    const ptName = `${p.firstName || ''} ${p.lastName || ''}`.trim();
+                    return (
+                      <div 
+                        key={p.id}
+                        onMouseDown={() => {
+                          setName(ptName);
+                          setPhone(p.phone || '');
+                          setEmail(p.email || '');
+                          setShowSuggestions(false);
+                          toast.success(`Paciente seleccionado: ${ptName}`);
+                        }}
+                        className="px-4 py-3 hover:bg-slate-50 cursor-pointer text-left transition-colors flex flex-col"
+                      >
+                        <span className="font-bold text-slate-800 text-sm">{ptName}</span>
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          Tel: {p.phone || 'Sin número'} {p.email ? ` | Email: ${p.email}` : ''}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
            <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
              <div>
                <label className="block text-sm font-bold text-slate-700 mb-2">Teléfono / WhatsApp</label>
