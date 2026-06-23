@@ -177,6 +177,27 @@ export function BookingForm() {
 
       await batch.commit();
 
+      // Enviar notificación a Telegram
+try {
+  await fetch('/api/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      patientName: name,
+      patientPhone: phone,
+      service,
+      date,
+      time,
+      status: (role === 'admin' || role === 'receptionist' || role === 'physiotherapist')
+        ? 'confirmed'
+        : 'pending',
+    }),
+  });
+} catch (notifyError) {
+  // Error silencioso — la cita ya se guardó, la notificación es secundaria
+  console.warn('Error enviando notificación Telegram:', notifyError);
+}
+
       setSuccessId(newDocRef.id);
     } catch (error: any) {
       console.error(error);
