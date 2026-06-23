@@ -44,7 +44,7 @@ export function Home() {
 
   const specialties = [
     { title: "Geriátrica", desc: "Artrosis, osteoporosis, problemas de equilibrio, debilidad muscular y alteraciones de la marcha en adultos mayores." },
-    { title: "Pediátrica", desc: "Retrasos del desarrollo motor, tortícolis, alteraciones posturales y trastornos neurológicos infantiles." },
+    { title: "Pediátrica", desc: "Retrasos del desarrollo motor, alteraciones posturales y trastornos neurológicos infantiles." },
     { title: "Ortopédica", desc: "Dolor articular, lesiones de hombro, rodilla y columna, así como rehabilitación postquirúrgica." },
     { title: "Neurológica", desc: "Accidente cerebrovascular (ACV), Parkinson, parálisis facial, neuropatías y lesiones del sistema nervioso." },
     { title: "Traumatológica", desc: "Fracturas, esguinces, luxaciones, lesiones musculares y recuperación posterior a traumatismos." },
