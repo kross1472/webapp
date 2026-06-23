@@ -563,8 +563,8 @@ export function AdminClinicalHistory() {
              <div className="md:col-span-2">
                <label className="block text-sm font-bold text-slate-700 mb-2">Enfermedad Actual / Descripción</label>
                <textarea 
-                 rows={3} required value={illness} onChange={e => setIllness(e.target.value)}
-                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all resize-none" 
+                 rows={8} required value={illness} onChange={e => setIllness(e.target.value)}
+                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all resize-y min-h-[160px]" 
                  placeholder="Inicio, evolución, características..."
                />
              </div>
@@ -581,8 +581,8 @@ export function AdminClinicalHistory() {
              <div className="md:col-span-2">
                <label className="block text-sm font-bold text-slate-700 mb-2">Antecedentes Patológicos, Quirúrgicos y Alergias</label>
                <textarea 
-                 rows={2} value={medicalHist} onChange={e => setMedicalHist(e.target.value)}
-                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all resize-none" 
+                 rows={6} value={medicalHist} onChange={e => setMedicalHist(e.target.value)}
+                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all resize-y min-h-[120px]" 
                />
              </div>
           </div>
@@ -595,15 +595,15 @@ export function AdminClinicalHistory() {
              <div>
                <label className="block text-sm font-bold text-slate-700 mb-2">Exploración Física (Postura, ROM, Fuerza, Neurológico)</label>
                <textarea 
-                 rows={3} value={physicalExam} onChange={e => setPhysicalExam(e.target.value)}
-                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all resize-none" 
+                 rows={8} value={physicalExam} onChange={e => setPhysicalExam(e.target.value)}
+                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all resize-y min-h-[160px]" 
                />
              </div>
              <div>
                <label className="block text-sm font-bold text-slate-700 mb-2">Diagnóstico Fisioterapéutico</label>
                <textarea 
-                 rows={2} required value={diagnosis} onChange={e => setDiagnosis(e.target.value)}
-                 className="w-full bg-white border border-brand-light/30 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all resize-none bg-brand-light/5" 
+                 rows={6} required value={diagnosis} onChange={e => setDiagnosis(e.target.value)}
+                 className="w-full bg-white border border-brand-light/30 rounded-xl px-4 py-3 outline-none focus:border-brand-light transition-all resize-y min-h-[120px] bg-brand-light/5" 
                />
              </div>
            </div>
@@ -687,21 +687,21 @@ export function AdminClinicalHistory() {
                    <div>
                      <label className="block text-xs font-bold text-slate-600 mb-1.5">Plan de Tratamiento / Objetivos (Requerido)</label>
                      <textarea 
-                       rows={3} 
+                       rows={6} 
                        required 
                        value={plan.treatmentPlan || ''} 
                        onChange={e => updateTreatmentPlan(idx, { treatmentPlan: e.target.value })}
-                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand-light transition-all text-xs resize-none" 
+                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand-light transition-all text-xs resize-y min-h-[120px]" 
                        placeholder="Describir los objetivos terapéuticos..."
                      />
                    </div>
                    <div>
                      <label className="block text-xs font-bold text-slate-600 mb-1.5">Recomendaciones para el Hogar / Observaciones</label>
                      <textarea 
-                       rows={3} 
+                       rows={6} 
                        value={plan.observations || ''} 
                        onChange={e => updateTreatmentPlan(idx, { observations: e.target.value })}
-                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand-light transition-all text-xs resize-none" 
+                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand-light transition-all text-xs resize-y min-h-[120px]" 
                        placeholder="Indicaciones para el paciente..."
                      />
                    </div>
