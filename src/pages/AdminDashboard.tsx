@@ -244,7 +244,7 @@ export function AdminDashboard() {
           </div>
           
           {viewMode === 'calendar' ? (
-             <AdminCalendarView appointments={appointments} handleConfirm={handleConfirm} handleCancel={handleCancel} />
+             <AdminCalendarView appointments={appointments} handleConfirm={handleConfirm} handleCancel={handleCancel} role={role} />
           ) : (
             <div className="space-y-4">
               {appointments.filter(apt => (apt.patientName || '').toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && <p className="text-sm text-slate-500 italic">No hay citas encontradas.</p>}
