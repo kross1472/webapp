@@ -5,7 +5,7 @@ import { es } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot, addDoc, updateDoc, doc, deleteDoc, setDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
@@ -58,7 +58,7 @@ const CustomToolbar = (toolbar: any) => {
   );
 };
 
-export function AdminCalendarView({ appointments, handleConfirm, handleCancel }: { appointments: any[], handleConfirm: (id: string, physioId?: string) => void, handleCancel: (id: string) => void }) {
+export function AdminCalendarView({ appointments, handleConfirm, handleCancel, role }: { appointments: any[], handleConfirm: (id: string, physioId?: string) => void, handleCancel: (id: string) => void, role?: string }) {
   const [view, setView] = useState<View>(Views.MONTH);
   const [date, setDate] = useState(new Date());
   const [isAvailabilityMode, setIsAvailabilityMode] = useState(false);
@@ -183,6 +183,74 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
   const displayedBgEvents = isAvailabilityMode ? [] : availEvents;
 
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editPatientName, setEditPatientName] = useState('');
+  const [editPatientPhone, setEditPatientPhone] = useState('');
+  const [editService, setEditService] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [editPhysioId, setEditPhysioId] = useState('');
+  const [editObservaciones, setEditObservaciones] = useState('');
+
+  const isStaff = role === 'admin' || role === 'receptionist' || role === 'physiotherapist';
+
+  const HOURS_OPTIONS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
+  const SERVICES_OPTIONS = [
+    "Fisioterapia y Rehabilitacion",
+    "Descarga Muscular",
+    "Masaje Terapeutico (relajante-descontracturante)",
+    "Crioterapia"
+  ];
+
+  useEffect(() => {
+    if (selectedEvent && selectedEvent.type !== 'availability') {
+      setEditPatientName(selectedEvent.patientName || '');
+      setEditPatientPhone(selectedEvent.patientPhone || '');
+      setEditService(selectedEvent.service || '');
+      setEditDate(selectedEvent.date || '');
+      setEditTime(selectedEvent.time || '');
+      setEditPhysioId(selectedEvent.physiotherapistId || '');
+      setEditObservaciones(selectedEvent.observaciones || '');
+      setIsEditing(false);
+    }
+  }, [selectedEvent]);
+
+  const handleSaveEdit = async () => {
+    try {
+      const appointmentRef = doc(db, 'appointments', selectedEvent.id);
+      await updateDoc(appointmentRef, {
+        date: editDate,
+        time: editTime,
+        service: editService,
+        physiotherapistId: editPhysioId || null,
+        updatedAt: Date.now()
+      });
+
+      const detailsRef = doc(db, 'appointments', selectedEvent.id, 'details', 'info');
+      await setDoc(detailsRef, {
+        patientName: editPatientName,
+        patientPhone: editPatientPhone,
+        service: editService,
+        observaciones: editObservaciones
+      }, { merge: true });
+
+      toast.success("Cita actualizada exitosamente");
+      setIsEditing(false);
+      setSelectedEvent((prev: any) => ({
+        ...prev,
+        patientName: editPatientName,
+        patientPhone: editPatientPhone,
+        service: editService,
+        date: editDate,
+        time: editTime,
+        physiotherapistId: editPhysioId || null,
+        observaciones: editObservaciones
+      }));
+    } catch (e: any) {
+      console.error("Error updating appointment details:", e);
+      toast.error("Error al guardar cambios: " + e.message);
+    }
+  };
 
   const eventStyleGetter = (event: any) => {
     let style: React.CSSProperties = {
@@ -419,6 +487,15 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
                     </h3>
                  </div>
                  <div className="flex items-center gap-2">
+                    {selectedEvent.type !== 'availability' && isStaff && !isEditing && (
+                       <button 
+                         onClick={() => setIsEditing(true)} 
+                         className="flex items-center gap-2 px-3 py-1.5 text-sm bg-brand-light hover:bg-brand-dark text-white font-medium rounded-lg transition-colors print:hidden shadow-sm"
+                       >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                          Editar
+                       </button>
+                    )}
                     <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors print:hidden">
                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
                        Imprimir
@@ -465,85 +542,185 @@ export function AdminCalendarView({ appointments, handleConfirm, handleCancel }:
                 </div>
               ) : (
                 <>
-                  <div className="space-y-3 print:items-start">
-                     <table className="w-full border-collapse mb-4 print:table">
-                        <tbody>
-                           <tr>
-                              <td className="border border-slate-200 p-3 bg-slate-50 w-1/3"><p className="text-xs font-bold text-slate-500 uppercase">Paciente</p></td>
-                              <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.patientName || 'Anónimo'}</p></td>
-                           </tr>
-                           <tr>
-                              <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Teléfono</p></td>
-                              <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.patientPhone || 'No registrado'}</p></td>
-                           </tr>
-                           <tr>
-                              <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Servicio</p></td>
-                              <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.service || 'General'}</p></td>
-                           </tr>
-                           {(selectedEvent.status === 'confirmed' || selectedEvent.status === 'completed') && selectedEvent.physiotherapistId && (
-                           <tr>
-                              <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Fisioterapeuta Asignado</p></td>
-                              <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">
-                                 {physiotherapists.find(p => p.id === selectedEvent.physiotherapistId)?.firstName || 
-                                  physiotherapists.find(p => p.id === selectedEvent.physiotherapistId)?.name || 'Desconocido'}
-                              </p></td>
-                           </tr>
-                           )}
-                           <tr>
-                              <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Fecha y Hora</p></td>
-                              <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.date} {selectedEvent.time}</p></td>
-                           </tr>
-                           <tr>
-                              <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Estado</p></td>
-                              <td className="border border-slate-200 p-3">
-                                 <span className={`inline-block mt-1 text-xs px-2.5 py-1.5 rounded-lg font-bold ${
-                                    selectedEvent.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' :
-                                    selectedEvent.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                                    'bg-slate-100 text-slate-700'
-                                 }`}>
-                                   {selectedEvent.status === 'pending' ? 'Pendiente' : 
-                                    selectedEvent.status === 'confirmed' ? 'Confirmada' : selectedEvent.status}
-                                 </span>
-                              </td>
-                           </tr>
-                        </tbody>
-                     </table>
-                  </div>
-                  {selectedEvent.status === 'pending' && (
-                     <div className="mt-6 border-t border-slate-100 pt-4 print:hidden">
-                       <label className="block text-sm font-bold text-slate-700 mb-2">Asignar Fisioterapeuta</label>
-                       <select 
-                         value={confirmPhysioId} 
-                         onChange={(e) => setConfirmPhysioId(e.target.value)}
-                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-brand-light transition-all font-medium text-slate-700 mb-4"
-                       >
-                         <option value="">Sin asignar (Opcional)</option>
-                         {physiotherapists.map(p => (
-                           <option key={p.id} value={p.id}>{p.firstName || p.name || p.email} {p.lastName || ''}</option>
-                         ))}
-                       </select>
-                       <button 
-                         onClick={() => {
-                            handleConfirm(selectedEvent.id, confirmPhysioId);
-                            setConfirmPhysioId('');
-                            setSelectedEvent(null);
-                         }}
-                         className="mb-2 w-full py-2.5 bg-brand-light text-white font-bold rounded-xl hover:bg-brand-dark transition-colors"
-                       >
-                          Confirmar Cita
-                       </button>
-                     </div>
-                  )}
-                  {selectedEvent.status !== 'cancelled' && selectedEvent.status !== 'completed' && (
-                     <button 
-                       onClick={() => {
-                          handleCancel(selectedEvent.id);
-                          setSelectedEvent(null);
-                       }}
-                       className={`${selectedEvent.status !== 'pending' ? 'mt-6 mb-2' : 'mb-2'} w-full py-2.5 bg-white border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-colors print:hidden`}
-                     >
-                        Cancelar Cita
-                     </button>
+                  {isEditing ? (
+                    <div className="space-y-4 max-h-[480px] overflow-y-auto pr-2">
+                       <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre del Paciente</label>
+                          <input 
+                            type="text" 
+                            value={editPatientName} 
+                            onChange={(e) => setEditPatientName(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand-light transition-all text-sm font-medium text-slate-700"
+                          />
+                       </div>
+                       <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Teléfono</label>
+                          <input 
+                            type="tel" 
+                            value={editPatientPhone} 
+                            onChange={(e) => setEditPatientPhone(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand-light transition-all text-sm font-medium text-slate-700"
+                          />
+                       </div>
+                       <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Servicio</label>
+                          <select 
+                            value={editService} 
+                            onChange={(e) => setEditService(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand-light transition-all text-sm font-medium text-slate-700"
+                          >
+                             {SERVICES_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                       </div>
+                       <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fisioterapeuta Asignado</label>
+                          <select 
+                            value={editPhysioId} 
+                            onChange={(e) => setEditPhysioId(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand-light transition-all text-sm font-medium text-slate-700"
+                          >
+                             <option value="">Sin asignar</option>
+                             {physiotherapists.map(p => (
+                               <option key={p.id} value={p.id}>{p.firstName || p.name} {p.lastName || ''}</option>
+                             ))}
+                          </select>
+                       </div>
+                       <div className="grid grid-cols-2 gap-3">
+                          <div>
+                             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha</label>
+                             <input 
+                               type="date" 
+                               value={editDate} 
+                               onChange={(e) => setEditDate(e.target.value)}
+                               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand-light transition-all text-sm font-medium text-slate-700"
+                             />
+                          </div>
+                          <div>
+                             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Hora</label>
+                             <select 
+                               value={editTime} 
+                               onChange={(e) => setEditTime(e.target.value)}
+                               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand-light transition-all text-sm font-medium text-slate-700"
+                             >
+                                {HOURS_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
+                             </select>
+                          </div>
+                       </div>
+                       <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Observaciones</label>
+                          <textarea 
+                            value={editObservaciones} 
+                            onChange={(e) => setEditObservaciones(e.target.value)}
+                            rows={3}
+                            placeholder="Añada cualquier observación o detalle extra aquí..."
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-brand-light transition-all text-sm font-medium text-slate-700 resize-none animate-none"
+                          />
+                       </div>
+
+                       <div className="flex gap-3 pt-4 border-t border-slate-100">
+                          <button 
+                            type="button"
+                            onClick={() => setIsEditing(false)}
+                            className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                          >
+                             Cancelar
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={handleSaveEdit}
+                            className="flex-1 py-2.5 bg-brand-light text-white font-bold rounded-xl hover:bg-brand-dark transition-colors"
+                          >
+                             Guardar
+                          </button>
+                       </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-3 print:items-start">
+                         <table className="w-full border-collapse mb-4 print:table">
+                            <tbody>
+                               <tr>
+                                  <td className="border border-slate-200 p-3 bg-slate-50 w-1/3"><p className="text-xs font-bold text-slate-500 uppercase">Paciente</p></td>
+                                  <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.patientName || 'Anónimo'}</p></td>
+                               </tr>
+                               <tr>
+                                  <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Teléfono</p></td>
+                                  <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.patientPhone || 'No registrado'}</p></td>
+                               </tr>
+                               <tr>
+                                  <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Servicio</p></td>
+                                  <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.service || 'General'}</p></td>
+                               </tr>
+                               {(selectedEvent.status === 'confirmed' || selectedEvent.status === 'completed') && selectedEvent.physiotherapistId && (
+                               <tr>
+                                  <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Fisioterapeuta Asignado</p></td>
+                                  <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">
+                                     {physiotherapists.find(p => p.id === selectedEvent.physiotherapistId)?.firstName || 
+                                      physiotherapists.find(p => p.id === selectedEvent.physiotherapistId)?.name || 'Desconocido'}
+                                  </p></td>
+                               </tr>
+                               )}
+                               <tr>
+                                  <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Fecha y Hora</p></td>
+                                  <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900">{selectedEvent.date} {selectedEvent.time}</p></td>
+                               </tr>
+                               <tr>
+                                  <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Estado</p></td>
+                                  <td className="border border-slate-200 p-3">
+                                     <span className={`inline-block mt-1 text-xs px-2.5 py-1.5 rounded-lg font-bold ${
+                                        selectedEvent.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' :
+                                        selectedEvent.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                        'bg-slate-100 text-slate-700'
+                                     }`}>
+                                       {selectedEvent.status === 'pending' ? 'Pendiente' : 
+                                        selectedEvent.status === 'confirmed' ? 'Confirmada' : selectedEvent.status}
+                                     </span>
+                                  </td>
+                               </tr>
+                               <tr>
+                                  <td className="border border-slate-200 p-3 bg-slate-50"><p className="text-xs font-bold text-slate-500 uppercase">Observaciones</p></td>
+                                  <td className="border border-slate-200 p-3"><p className="font-medium text-slate-900 break-words whitespace-pre-wrap">{selectedEvent.observaciones || 'Ninguna'}</p></td>
+                               </tr>
+                            </tbody>
+                         </table>
+                      </div>
+                      {selectedEvent.status === 'pending' && (
+                         <div className="mt-6 border-t border-slate-100 pt-4 print:hidden">
+                           <label className="block text-sm font-bold text-slate-700 mb-2">Asignar Fisioterapeuta</label>
+                           <select 
+                             value={confirmPhysioId} 
+                             onChange={(e) => setConfirmPhysioId(e.target.value)}
+                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-brand-light transition-all font-medium text-slate-700 mb-4"
+                           >
+                             <option value="">Sin asignar (Opcional)</option>
+                             {physiotherapists.map(p => (
+                               <option key={p.id} value={p.id}>{p.firstName || p.name || p.email} {p.lastName || ''}</option>
+                             ))}
+                           </select>
+                           <button 
+                             onClick={() => {
+                                handleConfirm(selectedEvent.id, confirmPhysioId);
+                                setConfirmPhysioId('');
+                                setSelectedEvent(null);
+                             }}
+                             className="mb-2 w-full py-2.5 bg-brand-light text-white font-bold rounded-xl hover:bg-brand-dark transition-colors"
+                           >
+                              Confirmar Cita
+                           </button>
+                         </div>
+                      )}
+                      {selectedEvent.status !== 'cancelled' && selectedEvent.status !== 'completed' && (
+                         <button 
+                           onClick={() => {
+                              handleCancel(selectedEvent.id);
+                              setSelectedEvent(null);
+                           }}
+                           className={`${selectedEvent.status !== 'pending' ? 'mt-6 mb-2' : 'mb-2'} w-full py-2.5 bg-white border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-colors print:hidden`}
+                         >
+                            Cancelar Cita
+                         </button>
+                      )}
+                    </>
                   )}
                 </>
               )}
